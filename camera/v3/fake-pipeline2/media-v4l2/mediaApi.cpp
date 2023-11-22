@@ -269,6 +269,13 @@ int setSdFormat(media_stream_t *stream, stream_configuration_t *cfg)
 
     CAMHAL_LOGD("%s ++", __FUNCTION__);
 
+    if (cfg->format.fps > 0) {
+        rtn = v4l2_subdev_set_fps(stream->sensor_ent, cfg->format.fps);
+        if (rtn < 0) {
+            CAMHAL_LOGE("Failed to set sensor fps, use default\n");
+        }
+    }
+
     // sensor source pad fmt
     rtn = v4l2_subdev_set_format(stream->sensor_ent,
           &mbus_format, 0, which);
@@ -277,14 +284,6 @@ int setSdFormat(media_stream_t *stream, stream_configuration_t *cfg)
         return rtn;
     }
     CAMHAL_LOGD("%s fmt code after sensor 0x%x", __FUNCTION__, mbus_format.code);
-
-    if (cfg->vformat[0].fps > 0) {
-        rtn = v4l2_subdev_set_fps(stream->sensor_ent, cfg->vformat[0].fps);
-        if (rtn < 0) {
-            CAMHAL_LOGE("Failed to set sensor fps, use default\n");
-        }
-    }
-
 
     // csiphy source & sink pad fmt
     rtn = v4l2_subdev_set_format(stream->csiphy_ent,

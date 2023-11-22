@@ -763,9 +763,8 @@ status_t EmulatedFakeCamera3::configureStreams(
             privStream->registered = false;
 
             CAMHAL_LOGD("stream_type=%d\n", newStream->stream_type);
-            char property[PROPERTY_VALUE_MAX];
-            property_get("ro.vendor.camera_mipi.60hz", property, "false");
-            if (strstr(property,"true")) {
+            int fps = property_get_int32("vendor.camhal.mipi.fps", 30);
+            if (fps > 30) {
                 newStream->max_buffers = kMaxBufferCount60hz;
             } else {
                 newStream->max_buffers = kMaxBufferCount + 8;
@@ -1170,19 +1169,11 @@ const camera_metadata_t* EmulatedFakeCamera3::constructDefaultRequestSettings(
     static const int32_t aeExpCompensation = 0;
     settings.update(ANDROID_CONTROL_AE_EXPOSURE_COMPENSATION, &aeExpCompensation, 1);
 
-    char property[PROPERTY_VALUE_MAX];
-    property_get("ro.vendor.camera_mipi.60hz", property, "false");
-    if (strstr(property,"true")) {
-        static const int32_t aeTargetFpsRange[2] = {
-            30, 60
-        };
-        settings.update(ANDROID_CONTROL_AE_TARGET_FPS_RANGE, aeTargetFpsRange, 2);
-    } else {
-        static const int32_t aeTargetFpsRange[2] = {
-            30, 30
-        };
-        settings.update(ANDROID_CONTROL_AE_TARGET_FPS_RANGE, aeTargetFpsRange, 2);
-    }
+    int fps = property_get_int32("vendor.camhal.mipi.fps", 30);
+    static const int32_t aeTargetFpsRange[2] = {
+        30, fps
+    };
+    settings.update(ANDROID_CONTROL_AE_TARGET_FPS_RANGE, aeTargetFpsRange, 2);
     static const uint8_t aeAntibandingMode =
             ANDROID_CONTROL_AE_ANTIBANDING_MODE_AUTO;
     settings.update(ANDROID_CONTROL_AE_ANTIBANDING_MODE, &aeAntibandingMode, 1);
@@ -2480,8 +2471,8 @@ status_t EmulatedFakeCamera3::constructStaticInfo() {
     info.update(ANDROID_REQUEST_PIPELINE_DEPTH, (uint8_t *)len, 1);
 
     /*for cts BurstCaptureTest ->testYuvBurst */
-    property_get("ro.vendor.camera_mipi.60hz", property, "false");
-    if (strstr(property, "true")) {
+    int fps = property_get_int32("vendor.camhal.mipi.fps", 30);
+    if (fps > 30) {
         uint8_t maxlen[] = {kMaxBufferCount60hz};
         info.update(ANDROID_REQUEST_PIPELINE_MAX_DEPTH, (uint8_t *)maxlen, 1);
     } else {
@@ -3328,9 +3319,9 @@ bool EmulatedFakeCamera3::ReadoutThread::threadLoop() {
 
     mCurrentRequest.settings.update(ANDROID_SENSOR_TIMESTAMP,
             &captureTime, 1);
-    char property[PROPERTY_VALUE_MAX];
-    property_get("ro.vendor.camera_mipi.60hz", property, "false");
-    if (strstr(property,"true")) {
+
+    int fps = property_get_int32("vendor.camhal.mipi.fps", 30);
+    if (fps > 60) {
         const uint8_t pipelineDepth = needJpeg ? kMaxBufferCount60hz : kMaxBufferCount60hz - 1;
         mCurrentRequest.settings.update(ANDROID_REQUEST_PIPELINE_DEPTH,
                 &pipelineDepth, 1);

@@ -102,14 +102,10 @@ V4l2MediaSensor::V4l2MediaSensor() {
     mVinfo = NULL;
     mCapture = NULL;
     char property[PROPERTY_VALUE_MAX];
-    property_get("ro.vendor.camera_mipi.60hz", property, "false");
-    if (strstr(property,"true")) {
-        mFrameDuration = 33333333L/2;
-        mFps = 60;
-    } else {
-        mFrameDuration = FRAME_DURATION;
-        mFps = 0;
-    }
+
+    mFps = property_get_int32("vendor.camhal.mipi.fps", 30);
+    mFrameDuration = FRAME_DURATION / (mFps / 30);
+
     enableZsl = false;
     enableHdr = 0;
     mStreamState = STREAM_NOT_CREATED;
@@ -888,7 +884,7 @@ status_t V4l2MediaSensor::setOutputFormat(int width, int height, int pixelformat
         mStreamconfig.format.width  = mMaxWidth;
         mStreamconfig.format.height = mMaxHeight;
         mStreamconfig.format.code   = staticPipe::fetchSensorFormat((media_stream_t *) mMediaStream, enableHdr, mFps);
-
+        mStreamconfig.format.fps    = mFps;
         if (mIspMgr) {
             if (enableHdr) {
                 int wdr_type = staticPipe::fetchSensorWdrType((media_stream_t *) mMediaStream, enableHdr);
