@@ -24,6 +24,7 @@
 #include <linux/videodev2.h>
 #include <hardware/camera.h>
 
+
 /* A helper class that tracks a routine execution.
  * Basically, it dumps an enry message in its constructor, and an exit message
  * in its destructor. Use LOGRE() macro (declared bellow) to create instances

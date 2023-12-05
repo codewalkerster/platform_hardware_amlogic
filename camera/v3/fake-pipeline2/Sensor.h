@@ -128,8 +128,7 @@ class Sensor: public Thread, public virtual RefBase {
     virtual status_t setOutputFormat(int width, int height, int pixelformat, channel ch);
     void setPictureRotate(int rotate);
     int getPictureRotate();
-    virtual uint32_t getStreamUsage(camera3_stream_t& stream);
-
+    virtual uint32_t getStreamUsage(aml_camera_stream_t& stream);
     virtual status_t streamOn(channel ch);
     virtual status_t streamOff(channel ch);
 
@@ -201,7 +200,7 @@ class Sensor: public Thread, public virtual RefBase {
         };
 
         virtual void onSensorEvent(uint32_t frameNumber, Event e,
-                nsecs_t timestamp) = 0;
+                nsecs_t timestamp, nsecs_t readoutTimestamp) = 0;
         virtual void onSensorPicJpeg(Request &r) = 0;
         virtual ~SensorListener();
     };

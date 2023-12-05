@@ -25,7 +25,7 @@
 #define ALOGVV(...) ((void)0)
 #endif
 #define RATIO_SCALE
-#include <hardware/camera3.h>
+#include "amlogic_camera.h"
 #include <DebugUtils.h>
 #include "ge2d_stream.h"
 
