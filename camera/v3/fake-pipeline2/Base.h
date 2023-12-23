@@ -26,11 +26,11 @@
 #include <hardware/camera2.h>
 #include <utils/Vector.h>
 #include <CameraMetadata.h>
-#include "amlogic_camera.h"
+#include <hardware/camera3.h>
 
 namespace android {
 using ::android::hardware::camera::common::V1_0::helper::CameraMetadata;
-typedef Vector<aml_camera_stream_buffer>     HalBufferVector;
+typedef Vector<camera3_stream_buffer>     HalBufferVector;
 
 
 /* Internal structure for passing buffers across threads */

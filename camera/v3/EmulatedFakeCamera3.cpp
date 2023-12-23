@@ -45,6 +45,7 @@
 #include <binder/IPCThreadState.h>
 #include <amlogic/am_gralloc_ext.h>
 
+
 #if defined(LOG_NNDEBUG) && LOG_NNDEBUG == 0
 #define ALOGVV ALOGV
 #else
@@ -130,7 +131,7 @@ const float   EmulatedFakeCamera3::kExposureWanderMax        = 1;
 /**
  * Camera device lifecycle methods
  */
-static const ssize_t kMinJpegBufferSize = 256 * 1024 + sizeof(aml_camera_jpeg_blob);
+static const ssize_t kMinJpegBufferSize = 256 * 1024 + sizeof(camera3_jpeg_blob);
 jpegsize EmulatedFakeCamera3::getMaxJpegResolution(uint32_t picSizes[],int count) {
     uint32_t maxJpegWidth = 0, maxJpegHeight = 0;
     jpegsize maxJpegResolution;
@@ -183,7 +184,7 @@ EmulatedFakeCamera3::EmulatedFakeCamera3(int cameraId, struct hw_module_t* modul
     ATRACE_CALL();
     ALOGI("Constructing emulated fake camera 3 cameraID:%d", mCameraID);
 
-    for (size_t i = 0; i < AML_CAMERA_TEMPLATE_COUNT; i++) {
+    for (size_t i = 0; i < CAMERA3_TEMPLATE_COUNT; i++) {
         mDefaultTemplates[i] = NULL;
     }
 
@@ -228,7 +229,7 @@ EmulatedFakeCamera3::EmulatedFakeCamera3(int cameraId, struct hw_module_t* modul
 }
 
 EmulatedFakeCamera3::~EmulatedFakeCamera3() {
-    for (size_t i = 0; i < AML_CAMERA_TEMPLATE_COUNT; i++) {
+    for (size_t i = 0; i < CAMERA3_TEMPLATE_COUNT; i++) {
         if (mDefaultTemplates[i] != NULL) {
             free_camera_metadata(mDefaultTemplates[i]);
         }
@@ -496,7 +497,7 @@ status_t EmulatedFakeCamera3::checkValidJpegSize(uint32_t width, uint32_t height
 }
 
 status_t EmulatedFakeCamera3::configureStreams(
-        aml_camera_stream_configuration *streamList) {
+        camera3_stream_configuration *streamList) {
         ATRACE_CALL();
     Mutex::Autolock l(mLock);
     uint32_t width = 0, height = 0, pixelfmt = 0;
@@ -531,9 +532,9 @@ status_t EmulatedFakeCamera3::configureStreams(
         return BAD_VALUE;
     }
 
-    aml_camera_stream_t *inputStream = NULL;
+    camera3_stream_t *inputStream = NULL;
     for (size_t i = 0; i < streamList->num_streams; i++) {
-        aml_camera_stream_t *newStream = streamList->streams[i];
+        camera3_stream_t *newStream = streamList->streams[i];
 
         if (newStream == NULL) {
             ALOGE("%s: Stream index %zu was NULL",
@@ -565,8 +566,8 @@ status_t EmulatedFakeCamera3::configureStreams(
                 newStream->usage,
                 newStream->format);
 
-        if (newStream->stream_type == AML_CAMERA_STREAM_INPUT ||
-            newStream->stream_type == AML_CAMERA_STREAM_BIDIRECTIONAL) {
+        if (newStream->stream_type == CAMERA3_STREAM_INPUT ||
+            newStream->stream_type == CAMERA3_STREAM_BIDIRECTIONAL) {
             if (inputStream != NULL) {
 
                 ALOGE("%s: Multiple input streams requested!", __FUNCTION__);
@@ -606,10 +607,10 @@ status_t EmulatedFakeCamera3::configureStreams(
     width = 0;
     height = 0;
     for (size_t i = 0; i < streamList->num_streams; i++) {
-        aml_camera_stream_t *newStream = streamList->streams[i];
+        camera3_stream_t *newStream = streamList->streams[i];
         DBG_LOGB("find propert width and height, format=%x, w*h=%dx%d, stream_type=%d, max_buffers=%d\n",
                 newStream->format, newStream->width, newStream->height, newStream->stream_type, newStream->max_buffers);
-        if (AML_CAMERA_STREAM_OUTPUT == newStream->stream_type) {
+        if (CAMERA3_STREAM_OUTPUT == newStream->stream_type) {
             if (newStream->format == HAL_PIXEL_FORMAT_BLOB && (mSensorType == SENSOR_V4L2MEDIA || mSensorType == SENSOR_MIPI)) {
                 ALOGI("skip add blob stream for mipi sensor have multi dma port");
                 continue;
@@ -689,7 +690,7 @@ status_t EmulatedFakeCamera3::configureStreams(
      * Find new streams and mark still-alive ones
      */
     for (size_t i = 0; i < streamList->num_streams; i++) {
-        aml_camera_stream_t *newStream = streamList->streams[i];
+        camera3_stream_t *newStream = streamList->streams[i];
         if (newStream->priv == NULL) {
             // New stream, construct info
             PrivateStreamInfo *privStream = new PrivateStreamInfo();
@@ -746,7 +747,7 @@ status_t EmulatedFakeCamera3::configureStreams(
 }
 
 status_t EmulatedFakeCamera3::registerStreamBuffers(
-        const aml_camera_stream_buffer_set *bufferSet) {
+        const camera3_stream_buffer_set *bufferSet) {
         ATRACE_CALL();
     DBG_LOGB("%s: E", __FUNCTION__);
     Mutex::Autolock l(mLock);
@@ -805,7 +806,7 @@ const camera_metadata_t* EmulatedFakeCamera3::constructDefaultRequestSettings(
     DBG_LOGB("%s: E", __FUNCTION__);
     Mutex::Autolock l(mLock);
 
-    if (type < 0 || type >= AML_CAMERA_TEMPLATE_COUNT) {
+    if (type < 0 || type >= CAMERA3_TEMPLATE_COUNT) {
         ALOGE("%s: Unknown request settings template: %d",
                 __FUNCTION__, type);
         return NULL;
@@ -908,9 +909,9 @@ const camera_metadata_t* EmulatedFakeCamera3::constructDefaultRequestSettings(
     uint8_t edgeMode = 0;
     switch (type) {
 
-      case AML_CAMERA_TEMPLATE_VIDEO_SNAPSHOT:
-      case AML_CAMERA_TEMPLATE_ZERO_SHUTTER_LAG:
-      case AML_CAMERA_TEMPLATE_STILL_CAPTURE:
+      case CAMERA3_TEMPLATE_VIDEO_SNAPSHOT:
+      case CAMERA3_TEMPLATE_ZERO_SHUTTER_LAG:
+      case CAMERA3_TEMPLATE_STILL_CAPTURE:
         noiseMode = ANDROID_NOISE_REDUCTION_MODE_OFF;
         hotPixelMode = ANDROID_HOT_PIXEL_MODE_HIGH_QUALITY;
         demosaicMode = ANDROID_DEMOSAIC_MODE_HIGH_QUALITY;
@@ -919,9 +920,9 @@ const camera_metadata_t* EmulatedFakeCamera3::constructDefaultRequestSettings(
         tonemapMode = ANDROID_TONEMAP_MODE_HIGH_QUALITY;
         edgeMode = ANDROID_EDGE_MODE_HIGH_QUALITY;
         break;
-      case AML_CAMERA_TEMPLATE_PREVIEW:
-      case AML_CAMERA_TEMPLATE_VIDEO_RECORD:
-      case AML_CAMERA_TEMPLATE_MANUAL:
+      case CAMERA3_TEMPLATE_PREVIEW:
+      case CAMERA3_TEMPLATE_VIDEO_RECORD:
+      case CAMERA3_TEMPLATE_MANUAL:
       default:
         hotPixelMode = ANDROID_HOT_PIXEL_MODE_FAST;
         demosaicMode = ANDROID_DEMOSAIC_MODE_FAST;
@@ -1045,22 +1046,22 @@ const camera_metadata_t* EmulatedFakeCamera3::constructDefaultRequestSettings(
     uint8_t aeMode = ANDROID_CONTROL_AE_MODE_ON;
     uint8_t awbMode = ANDROID_CONTROL_AWB_MODE_AUTO;
     switch (type) {
-      case AML_CAMERA_TEMPLATE_PREVIEW:
+      case CAMERA3_TEMPLATE_PREVIEW:
         controlIntent = ANDROID_CONTROL_CAPTURE_INTENT_PREVIEW;
         break;
-      case AML_CAMERA_TEMPLATE_STILL_CAPTURE:
+      case CAMERA3_TEMPLATE_STILL_CAPTURE:
         controlIntent = ANDROID_CONTROL_CAPTURE_INTENT_STILL_CAPTURE;
         break;
-      case AML_CAMERA_TEMPLATE_VIDEO_RECORD:
+      case CAMERA3_TEMPLATE_VIDEO_RECORD:
         controlIntent = ANDROID_CONTROL_CAPTURE_INTENT_VIDEO_RECORD;
         break;
-      case AML_CAMERA_TEMPLATE_VIDEO_SNAPSHOT:
+      case CAMERA3_TEMPLATE_VIDEO_SNAPSHOT:
         controlIntent = ANDROID_CONTROL_CAPTURE_INTENT_VIDEO_SNAPSHOT;
         break;
-      case AML_CAMERA_TEMPLATE_ZERO_SHUTTER_LAG:
+      case CAMERA3_TEMPLATE_ZERO_SHUTTER_LAG:
         controlIntent = ANDROID_CONTROL_CAPTURE_INTENT_ZERO_SHUTTER_LAG;
         break;
-      case AML_CAMERA_TEMPLATE_MANUAL:
+      case CAMERA3_TEMPLATE_MANUAL:
         controlIntent = ANDROID_CONTROL_CAPTURE_INTENT_MANUAL;
         controlMode = ANDROID_CONTROL_MODE_OFF;
         aeMode = ANDROID_CONTROL_AE_MODE_OFF;
@@ -1128,25 +1129,25 @@ const camera_metadata_t* EmulatedFakeCamera3::constructDefaultRequestSettings(
 
     uint8_t afMode = 0;
     switch (type) {
-      case AML_CAMERA_TEMPLATE_PREVIEW:
+      case CAMERA3_TEMPLATE_PREVIEW:
         afMode = ANDROID_CONTROL_AF_MODE_AUTO;
         break;
-      case AML_CAMERA_TEMPLATE_STILL_CAPTURE:
+      case CAMERA3_TEMPLATE_STILL_CAPTURE:
         afMode = ANDROID_CONTROL_AF_MODE_AUTO;
         break;
-      case AML_CAMERA_TEMPLATE_VIDEO_RECORD:
-        afMode = ANDROID_CONTROL_AF_MODE_AUTO;
-        //afMode = ANDROID_CONTROL_AF_MODE_CONTINUOUS_VIDEO;
-        break;
-      case AML_CAMERA_TEMPLATE_VIDEO_SNAPSHOT:
+      case CAMERA3_TEMPLATE_VIDEO_RECORD:
         afMode = ANDROID_CONTROL_AF_MODE_AUTO;
         //afMode = ANDROID_CONTROL_AF_MODE_CONTINUOUS_VIDEO;
         break;
-      case AML_CAMERA_TEMPLATE_ZERO_SHUTTER_LAG:
+      case CAMERA3_TEMPLATE_VIDEO_SNAPSHOT:
+        afMode = ANDROID_CONTROL_AF_MODE_AUTO;
+        //afMode = ANDROID_CONTROL_AF_MODE_CONTINUOUS_VIDEO;
+        break;
+      case CAMERA3_TEMPLATE_ZERO_SHUTTER_LAG:
         afMode = ANDROID_CONTROL_AF_MODE_AUTO;
         //afMode = ANDROID_CONTROL_AF_MODE_CONTINUOUS_PICTURE;
         break;
-      case AML_CAMERA_TEMPLATE_MANUAL:
+      case CAMERA3_TEMPLATE_MANUAL:
         afMode = ANDROID_CONTROL_AF_MODE_OFF;
         break;
       default:
@@ -1182,7 +1183,7 @@ const camera_metadata_t* EmulatedFakeCamera3::constructDefaultRequestSettings(
 }
 
 status_t EmulatedFakeCamera3::processCaptureRequest(
-        aml_camera_capture_request *request) {
+        camera3_capture_request *request) {
     ATRACE_CALL();
     status_t res;
     nsecs_t  exposureTime;
@@ -1249,7 +1250,7 @@ status_t EmulatedFakeCamera3::processCaptureRequest(
     // Validate all buffers, starting with input buffer if it's given
 
       ssize_t idx;
-      const aml_camera_stream_buffer_t *b;
+      const camera3_stream_buffer_t *b;
       if (request->input_buffer != NULL) {
          idx = -1;
          b = request->input_buffer;
@@ -1273,8 +1274,7 @@ status_t EmulatedFakeCamera3::processCaptureRequest(
          //return BAD_VALUE;
       }
 #endif
-
-         if (b->status != AML_CAMERA_BUFFER_STATUS_OK) {
+         if (b->status != CAMERA3_BUFFER_STATUS_OK) {
              ALOGE("%s: Request %d: Buffer %zu: Status not OK!",
                    __FUNCTION__, frameNumber, idx);
              return BAD_VALUE;
@@ -1405,7 +1405,7 @@ status_t EmulatedFakeCamera3::processCaptureRequest(
       // Process all the buffers we got for output, constructing internal buffer
       // structures for them, and lock them for writing.
       for (size_t i = 0; i < request->num_output_buffers; i++) {
-              const aml_camera_stream_buffer &srcBuf = request->output_buffers[i];
+              const camera3_stream_buffer &srcBuf = request->output_buffers[i];
               StreamBuffer destBuf;
               destBuf.streamId = kGenericStreamId;
               destBuf.width    = srcBuf.stream->width;
@@ -1489,7 +1489,7 @@ status_t EmulatedFakeCamera3::processCaptureRequest(
                          }
                      } else {
                          for (size_t j = 0; j < i; j++) {
-                            const aml_camera_stream_buffer &stream_buffer = request->output_buffers[j];
+                            const camera3_stream_buffer &stream_buffer = request->output_buffers[j];
                             if (srcBuf.stream->format == HAL_PIXEL_FORMAT_BLOB)
                                 GraphicBufferMapper::get().unlock(
                                          *(stream_buffer.buffer));
@@ -1687,7 +1687,7 @@ void EmulatedFakeCamera3::dump(int fd) {
 }
 //flush all request
 //TODO returned buffers every request held immediately with
-//AML_CAMERA_BUFFER_STATUS_ERROR flag.
+//CAMERA3_BUFFER_STATUS_ERROR flag.
 int EmulatedFakeCamera3::flush_all_requests() {
     DBG_LOGA("flush all request");
     mFlushTag = true;
@@ -2071,9 +2071,6 @@ status_t EmulatedFakeCamera3::constructStaticInfo() {
 
     static const int64_t rollingShutterSkew = 0;
     info.update(ANDROID_SENSOR_ROLLING_SHUTTER_SKEW, &rollingShutterSkew, 1);
-
-    static const uint8_t readtimestamp = ANDROID_SENSOR_READOUT_TIMESTAMP_NOT_SUPPORTED;
-    info.update(ANDROID_SENSOR_READOUT_TIMESTAMP, &readtimestamp, 1);
 
     //TODO: sensor color calibration fields
 
@@ -2925,28 +2922,26 @@ void EmulatedFakeCamera3::signalReadoutIdle() {
 }
 
 void EmulatedFakeCamera3::onSensorEvent(uint32_t frameNumber, Event e,
-        nsecs_t timestamp, nsecs_t readoutTimestamp) {
+        nsecs_t timestamp) {
         ATRACE_CALL();
     switch(e) {
         case Sensor::SensorListener::EXPOSURE_START: {
             ALOGVV("%s: Frame %d: Sensor started exposure at %lld",
                     __FUNCTION__, frameNumber, timestamp);
             // Trigger shutter notify to framework
-            aml_notify_message_t msg;
-            //ShutterMsg shutterMsg;
-            msg.type = AML_CAMERA_MSG_SHUTTER;
-            msg.shutter.frame_number = frameNumber;
-            msg.shutter.timestamp = timestamp;
-            msg.shutter.readout_timestamp = readoutTimestamp;
+            camera3_notify_msg_t msg;
+            msg.type = CAMERA3_MSG_SHUTTER;
+            msg.message.shutter.frame_number = frameNumber;
+            msg.message.shutter.timestamp = timestamp;
             sendNotify(&msg);
             break;
         }
         case Sensor::SensorListener::ERROR_CAMERA_DEVICE: {
-            aml_notify_message_t msg;
-            msg.type = AML_CAMERA_MSG_ERROR;
-            msg.error.frame_number = frameNumber;
-            msg.error.error_stream_id = -1;
-            msg.error.error_code = AML_CAMERA_MSG_ERROR_DEVICE;
+            camera3_notify_msg_t msg;
+            msg.type = CAMERA3_MSG_ERROR;
+            msg.message.error.frame_number = frameNumber;
+            msg.message.error.error_stream = NULL;
+            msg.message.error.error_code = 1;
             sendNotify(&msg);
             break;
         }
@@ -2994,7 +2989,7 @@ EmulatedFakeCamera3::ReadoutThread::ReadoutThread(EmulatedFakeCamera3 *parent) :
     mExitReadoutThread = false;
     mFlushFlag = false;
     mThreadActive = false;
-    memset(&mJpegHalBuffer,0,sizeof(struct aml_camera_stream_buffer));
+    memset(&mJpegHalBuffer,0,sizeof(struct camera3_stream_buffer));
 }
 
 EmulatedFakeCamera3::ReadoutThread::~ReadoutThread() {
@@ -3207,8 +3202,8 @@ bool EmulatedFakeCamera3::ReadoutThread::threadLoop() {
         if (mParent->mSensorType == SENSOR_USB && mParent->mUseHWdec == false)
             GraphicBufferMapper::get().unlock(*(buf->buffer));
 
-        buf->status = goodBuffer ? AML_CAMERA_BUFFER_STATUS_OK :
-                AML_CAMERA_BUFFER_STATUS_ERROR;
+        buf->status = goodBuffer ? CAMERA3_BUFFER_STATUS_OK :
+                CAMERA3_BUFFER_STATUS_ERROR;
         buf->acquire_fence = -1;
         buf->release_fence = -1;
 
@@ -3217,7 +3212,7 @@ bool EmulatedFakeCamera3::ReadoutThread::threadLoop() {
 
     // Construct result for all completed buffers and results
 
-    aml_camera_capture_result result;
+    camera3_capture_result result;
 
     mCurrentRequest.settings.update(ANDROID_SENSOR_TIMESTAMP,
             &captureTime, 1);
@@ -3260,11 +3255,11 @@ bool EmulatedFakeCamera3::ReadoutThread::threadLoop() {
     if (mParent->mSensor->isUnpluged()) {
         StreamList::iterator error_stream = mParent->mStreams.begin();
         while (error_stream != mParent->mStreams.end()) {
-            aml_notify_message_t msg;
-            msg.type = AML_CAMERA_MSG_ERROR;
-            msg.error.frame_number = result.frame_number;
-            msg.error.error_stream_id = -1;
-            msg.error.error_code = AML_CAMERA_MSG_ERROR_BUFFER;
+            camera3_notify_msg_t msg;
+            msg.type = CAMERA3_MSG_ERROR;
+            msg.message.error.frame_number = result.frame_number;
+            msg.message.error.error_stream = *error_stream;
+            msg.message.error.error_code = CAMERA3_MSG_ERROR_BUFFER;
             mParent->sendNotify(&msg);
             error_stream++;
         }
@@ -3295,12 +3290,12 @@ void EmulatedFakeCamera3::ReadoutThread::onJpegDone(
 
     mJpegHalBuffer = *(r.buf);
     mJpegHalBuffer.status = success ?
-            AML_CAMERA_BUFFER_STATUS_OK : AML_CAMERA_BUFFER_STATUS_ERROR;
+            CAMERA3_BUFFER_STATUS_OK : CAMERA3_BUFFER_STATUS_ERROR;
     mJpegHalBuffer.acquire_fence = -1;
     mJpegHalBuffer.release_fence = -1;
     mJpegWaiting = false;
 
-    aml_camera_capture_result result;
+    camera3_capture_result result;
     result.frame_number = r.frameNumber;
     result.result = NULL;
     result.input_buffer = NULL;

@@ -28,7 +28,7 @@
 #include "utils/Mutex.h"
 #include "utils/Timers.h"
 #include "Base.h"
-#include "amlogic_camera.h"
+#include <hardware/camera3.h>
 #include <utils/List.h>
 #include <stdio.h>
 
@@ -51,7 +51,7 @@ namespace android {
 
 struct CaptureRequest {
     uint32_t         frameNumber;
-    aml_camera_stream_buffer *buf;
+    camera3_stream_buffer *buf;
     Buffers         *sensorBuffers;
     bool    mNeedThumbnail;
 };

@@ -32,7 +32,7 @@
 #include "Sensor.h"
 #include <cmath>
 #include <cstdlib>
-#include "amlogic_camera.h"
+#include <hardware/camera3.h>
 #include "system/camera_metadata.h"
 #include "libyuv.h"
 #include "NV12_resize.h"
@@ -278,18 +278,18 @@ sensor_type_e Sensor::getSensorType(void)
 {
     return mSensorType;
 }
-uint32_t Sensor::getStreamUsage(aml_camera_stream_t& stream)
+uint32_t Sensor::getStreamUsage(camera3_stream_t& stream)
 {
     uint32_t usage = GRALLOC_USAGE_HW_CAMERA_WRITE;
 
     switch (stream.stream_type) {
-        case AML_CAMERA_STREAM_OUTPUT:
+        case CAMERA3_STREAM_OUTPUT:
             usage = GRALLOC_USAGE_HW_CAMERA_WRITE;
             break;
-        case AML_CAMERA_STREAM_INPUT:
+        case CAMERA3_STREAM_INPUT:
             usage = GRALLOC_USAGE_HW_CAMERA_READ;
             break;
-        case AML_CAMERA_STREAM_BIDIRECTIONAL:
+        case CAMERA3_STREAM_BIDIRECTIONAL:
             usage = GRALLOC_USAGE_HW_CAMERA_READ |
                 GRALLOC_USAGE_HW_CAMERA_WRITE;
             break;
@@ -1277,7 +1277,7 @@ bool Sensor::threadLoop() {
             }
 #endif
             listener->onSensorEvent(frameNumber, SensorListener::EXPOSURE_START,
-                    mNextCaptureTime, mNextCaptureTime + mExposureTime);
+                    mNextCaptureTime);
         }
 
         ALOGVV("Starting next capture: Exposure: %f ms, gain: %d",
@@ -1287,7 +1287,7 @@ bool Sensor::threadLoop() {
 
         if (0 != captureNewImage()) {
             if (listener != NULL) {
-                listener->onSensorEvent(frameNumber, SensorListener::ERROR_CAMERA_DEVICE, mNextCaptureTime,mNextCaptureTime + mExposureTime);
+                listener->onSensorEvent(frameNumber, SensorListener::ERROR_CAMERA_DEVICE, mNextCaptureTime);
             }
         }
 

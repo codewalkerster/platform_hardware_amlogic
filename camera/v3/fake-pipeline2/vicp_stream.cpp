@@ -7,7 +7,7 @@
 
 
 #define RATIO_SCALE
-#include "amlogic_camera.h"
+#include <hardware/camera3.h>
 #include <CamHalDebugLog.h>
 #include "vicp_stream.h"
 
