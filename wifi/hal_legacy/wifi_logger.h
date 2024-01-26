@@ -459,7 +459,7 @@ typedef enum {
     // Queued within firmware, but not yet sent over air.
     TX_PKT_FATE_FW_QUEUED,
 
-    // Dropped by firmware as invalid. E.g. bad source address, bad checksum,
+    // Dropped by firmware as invalid. E.G. bad source address, bad checksum,
     // or invalid for current state.
     TX_PKT_FATE_FW_DROP_INVALID,
 
@@ -474,7 +474,7 @@ typedef enum {
     // Queued within driver, not yet sent to firmware.
     TX_PKT_FATE_DRV_QUEUED,
 
-    // Dropped by driver as invalid. E.g. bad source address, or
+    // Dropped by driver as invalid. E.G. bad source address, or
     // invalid for current state.
     TX_PKT_FATE_DRV_DROP_INVALID,
 
@@ -495,7 +495,7 @@ typedef enum {
     // Dropped by firmware due to host-programmable filters.
     RX_PKT_FATE_FW_DROP_FILTER,
 
-    // Dropped by firmware as invalid. E.g. bad checksum, decrypt failed,
+    // Dropped by firmware as invalid. E.G. bad checksum, decrypt failed,
     // or invalid for current state.
     RX_PKT_FATE_FW_DROP_INVALID,
 
@@ -511,7 +511,7 @@ typedef enum {
     // Dropped by driver due to filter rules.
     RX_PKT_FATE_DRV_DROP_FILTER,
 
-    // Dropped by driver as invalid. E.g. not permitted in current state.
+    // Dropped by driver as invalid. E.G. not permitted in current state.
     RX_PKT_FATE_DRV_DROP_INVALID,
 
     // Dropped by driver due to lack of buffer space.
