@@ -1324,9 +1324,8 @@ bool Sensor::threadLoop() {
                 } while (ret != 0);
             }
         }
-
     } else {
-        usleep(12000);
+        usleep(100);
     }
 
     if (mExitSensorThread) {
