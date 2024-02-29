@@ -54,7 +54,6 @@ extern bool IsUsbAvailablePictureSize(const usb_frmsize_discrete_t AvailablePict
 HDMIToCSISensor::HDMIToCSISensor() {
     mCameraVirtualDevice = nullptr;
     mVinfo = NULL;
-    mCameraUtil = NULL;
     mImage_buffer = NULL;
     CAMHAL_LOGD("create MIPISensor");
 }
@@ -64,10 +63,6 @@ HDMIToCSISensor::~HDMIToCSISensor() {
      if (mVinfo) {
         delete(mVinfo);
         mVinfo = NULL;
-    }
-    if (mCameraUtil) {
-        delete mCameraUtil;
-        mCameraUtil = NULL;
     }
 }
 

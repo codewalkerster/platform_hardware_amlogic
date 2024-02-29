@@ -3,7 +3,6 @@
 
 #include "Sensor.h"
 #include "CameraIO.h"
-#include "CameraUtil.h"
 #include "OMXDecoder.h"
 #include "CameraIO.h"
 #include "CameraDevice.h"
@@ -76,7 +75,6 @@ namespace android {
             int mUseHwType;
             enum Decode_Method mDecodeMethod;
             OMXDecoder* mDecoder;
-            CameraUtil* mCameraUtil;
             Vector<uint32_t> mSupportFormat;
             Vector<uint32_t> mTryPixelFormat;
             uint32_t mCurrentFormat;

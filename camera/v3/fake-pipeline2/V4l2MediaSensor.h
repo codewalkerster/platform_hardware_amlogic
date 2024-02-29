@@ -3,7 +3,6 @@
 
 #include "Sensor.h"
 #include "MIPICameraIO.h"
-#include "CameraUtil.h"
 
 #include "CameraDevice.h"
 

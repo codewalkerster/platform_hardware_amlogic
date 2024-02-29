@@ -234,7 +234,6 @@ LOCAL_SRC_FILES := \
     EmulatedFakeCamera3Info.cpp \
     fake-pipeline2/camera_hw.cpp \
     fake-pipeline2/MPlaneCameraIO.cpp \
-    fake-pipeline2/util.c \
     VendorTags.cpp \
     fake-pipeline2/USBSensor.cpp \
     fake-pipeline2/MIPISensor.cpp \

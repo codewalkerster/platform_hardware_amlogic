@@ -120,7 +120,6 @@ USBSensor::USBSensor(int type)
     mUSBDevicefd = -1;
     mCameraVirtualDevice = nullptr;
     mVinfo = NULL;
-    mCameraUtil = NULL;
     mTempFD = -1;
     mDecodedBuffer = NULL;
     mIsRequestFinished = false;
@@ -143,10 +142,6 @@ USBSensor::~USBSensor() {
     if (mVinfo) {
         delete(mVinfo);
         mVinfo = NULL;
-    }
-    if (mCameraUtil) {
-        delete mCameraUtil;
-        mCameraUtil = NULL;
     }
     if (fp) {
         fclose(fp);

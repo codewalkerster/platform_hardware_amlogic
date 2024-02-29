@@ -103,7 +103,6 @@ USBSensorHWDec::USBSensorHWDec(int expectedV4l2OutPixFmt)
     mUSBDevicefd = -1;
     mCameraVirtualDevice = nullptr;
     mVinfo = NULL;
-    mCameraUtil = NULL;
     mTempFD = -1;
     memset(&mSavedDecodedBuffer, 0, sizeof(mSavedDecodedBuffer));
     mSavedDecodedBuffer.fd = -1;
@@ -134,10 +133,6 @@ USBSensorHWDec::~USBSensorHWDec() {
     if (mVinfo) {
         delete(mVinfo);
         mVinfo = NULL;
-    }
-    if (mCameraUtil) {
-        delete mCameraUtil;
-        mCameraUtil = NULL;
     }
     if (v4l2OutDumpFp) {
         fclose(v4l2OutDumpFp);

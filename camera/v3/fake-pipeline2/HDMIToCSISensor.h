@@ -46,7 +46,6 @@ public:
 		int mDevicefd[3];
 		//store the v4l2 info
 		CVideoInfo *mVinfo;
-		CameraUtil* mCameraUtil;
 		uint8_t* mImage_buffer;
 		const int MAX_LEVEL_FOR_EXPOSURE = 16;
 		const int MIN_LEVEL_FOR_EXPOSURE = 3;

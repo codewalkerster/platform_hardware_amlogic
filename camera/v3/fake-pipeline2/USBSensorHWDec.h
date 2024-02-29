@@ -6,7 +6,6 @@
 #include <utils/List.h>
 
 #include "Sensor.h"
-#include "CameraUtil.h"
 #include "HWVideoDecoder.h"
 #include "CameraIO.h"
 #include "CameraDevice.h"
@@ -97,7 +96,6 @@ namespace android {
             bool mUseStreamBufVecForDecoder;
             HWVideoDecoder*         mHWDecoder;
 
-            CameraUtil* mCameraUtil;
             Vector<uint32_t> mSupportFormat;
             Vector<uint32_t> mTryPixelFormat;
 

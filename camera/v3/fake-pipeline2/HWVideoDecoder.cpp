@@ -160,7 +160,6 @@ private:
 
     init_param_t mVideoDecConfig;
     CameraUtil* mDump = NULL;
-    int dumpIndex[4] = {0};
     bool mEnableDewarp;
 #if defined(PREVIEW_DEWARP_ENABLE) || defined(PICTURE_DEWARP_ENABLE)
     dewarpInfo mPreDewarpInfo[ISP_PORT_NUM];
@@ -1232,6 +1231,10 @@ int HWVideoDecoderImpl::queueInputBufferNoBlock(int in_fd, uint8_t* in_src, uint
         mCheckMjpegWH = false;
     }
 
+    if (property_get_bool("vendor.camhal.dump.usb.device", false)) {
+        dumpInputTofile(in_src, in_size);
+    }
+
     buffer_item_t *buf_item;
 
     // case 1: no more free input buffers. should not happen
@@ -1401,16 +1404,18 @@ int HWVideoDecoderImpl::syncDecode(int in_fd, uint8_t*in_src, uint32_t in_size, 
                             if (property_get_bool("camera.debug.dump.decoder", false)) {
                                 char dumpOutPath[256];
                                 char dumpDecodePath[256];
+                                static int dumpIndex[4] = {0};
+                                if (dumpIndex[i] % 10 == 0) {
+                                    /*=== dump yuv data after dewarp or ge2d ===*/
+                                    memset(&dumpOutPath[0], 0, sizeof(dumpOutPath));
+                                    snprintf(dumpOutPath, 256, "/data/vendor/camera/dst_%zu_%dx%d.yuv", i, b[i].width, b[i].height);
+                                    mDump -> dump(b[i].img, (b[i].width * b[i].height * 3 / 2), dumpOutPath);
 
-                                /*=== dump yuv data after dewarp or ge2d ===*/
-                                memset(&dumpOutPath[0], 0, sizeof(dumpOutPath));
-                                snprintf(dumpOutPath, 256, "/data/vendor/camera/dst_%zu_%dx%d.yuv", i, b[i].width, b[i].height);
-                                mDump -> dump(dumpIndex[i], b[i].img, (b[i].width * b[i].height * 3 / 2), dumpOutPath);
-
-                                /*=== dump yuv data after decode ===*/
-                                memset(&dumpDecodePath[0], 0, sizeof(dumpDecodePath));
-                                snprintf(dumpDecodePath, 256, "/data/vendor/camera/decode/dst_%dx%d.yuv", mDqWidth, mDqHeight);
-                                mDump -> dump(dumpIndex[i], outputBufInfo.vaddr, (mDqWidth * mDqHeight * 3 / 2), dumpDecodePath);
+                                    /*=== dump yuv data after decode ===*/
+                                    memset(&dumpDecodePath[0], 0, sizeof(dumpDecodePath));
+                                    snprintf(dumpDecodePath, 256, "/data/vendor/camera/decode/dst_%zu_%dx%d.yuv", i, mDqWidth, mDqHeight);
+                                    mDump -> dump(outputBufInfo.vaddr, (mDqWidth * mDqHeight * 3 / 2), dumpDecodePath);
+                                }
                                 dumpIndex[i]++;
                             }
                        } else
@@ -1546,16 +1551,18 @@ int HWVideoDecoderImpl::asyncDecodeDequeueOutput( Vector<StreamBuffer>& b, bool 
                            if (property_get_bool("camera.debug.dump.decoder", false)) {
                                 char dumpOutPath[256];
                                 char dumpDecodePath[256];
+                                static int dumpIndex[4] = {0};
+                                if (dumpIndex[i] % 10 == 0) {
+                                    /*=== dump yuv data after dewarp or ge2d ===*/
+                                    memset(&dumpOutPath[0], 0, sizeof(dumpOutPath));
+                                    snprintf(dumpOutPath, 256, "/data/vendor/camera/dst_%zu_%dx%d.yuv", i, b[i].width, b[i].height);
+                                    mDump -> dump(b[i].img, (b[i].width * b[i].height * 3 / 2), dumpOutPath);
 
-                                /*=== dump yuv data after dewarp or ge2d ===*/
-                                memset(&dumpOutPath[0], 0, sizeof(dumpOutPath));
-                                snprintf(dumpOutPath, 256, "/data/vendor/camera/dst_%zu_%dx%d.yuv", i, b[i].width, b[i].height);
-                                mDump -> dump(dumpIndex[i], b[i].img, (b[i].width * b[i].height * 3 / 2), dumpOutPath);
-
-                                /*=== dump yuv data after decode ===*/
-                                memset(&dumpDecodePath[0], 0, sizeof(dumpDecodePath));
-                                snprintf(dumpDecodePath, 256, "/data/vendor/camera/decode/dst_%dx%d.yuv", mDqWidth, mDqHeight);
-                                mDump -> dump(dumpIndex[i], outputBufInfo.vaddr, (mDqWidth * mDqHeight * 3 / 2), dumpDecodePath);
+                                    /*=== dump yuv data after decode ===*/
+                                    memset(&dumpDecodePath[0], 0, sizeof(dumpDecodePath));
+                                    snprintf(dumpDecodePath, 256, "/data/vendor/camera/decode/dst_%zu_%dx%d.yuv", i, mDqWidth, mDqHeight);
+                                    mDump -> dump(outputBufInfo.vaddr, (mDqWidth * mDqHeight * 3 / 2), dumpDecodePath);
+                                }
                                 dumpIndex[i]++;
                             }
                        } else
