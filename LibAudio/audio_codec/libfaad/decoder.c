@@ -229,6 +229,7 @@ static int Mpeg4GASpecificConfig(mpeg4_cfg_t *p_cfg, bitfile *ld)
 
     int i_extension_flag = faad_getbits(ld, 1);
     if (p_cfg->i_channel == 0) {
+        faad_getbits(ld, 4); //element_instance_tag
         Mpeg4GAProgramConfigElement(ld,p_cfg);
     }
     if (p_cfg->i_object_type == 6 || p_cfg->i_object_type == 20) {
