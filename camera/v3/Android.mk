@@ -28,7 +28,13 @@ GE2D_ENABLE := true
 GE2D_VERSION_2 := true
 ISP_ENABLE := false
 GDC_ENABLE := false
+HW_JPEG := false
+ifeq ($(VENDOR_ENCODER_SUPPORT_HCODEC),true)
 HW_JPEG := true
+endif
+ifeq ($(VENDOR_ENCODER_SUPPORT_WAVE521),true)
+HW_JPEG := true
+endif
 CAM_DPTZ := false
 CAMERA_MAX_PREVIEW_WIDTH := 1920
 CAMERA_MAX_PREVIEW_HEIGHT := 1080
