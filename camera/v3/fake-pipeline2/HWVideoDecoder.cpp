@@ -773,7 +773,7 @@ HWVideoDecoderImpl::HWVideoDecoderImpl(HWVideoDecoder * interfaceObj)
     if (property_get_bool("vendor.camhal.usbsensor.use.dewarp", false)) {
         mEnableDewarp = true;
     }
-    if (property_get_bool("camera.debug.dump.decoder", false)) {
+    if (property_get_bool("vendor.camhal.dump.usb.decoder", false)) {
         if (nullptr == mDump) {
             mDump = new CameraUtil();
         }
@@ -821,7 +821,7 @@ HWVideoDecoderImpl::~HWVideoDecoderImpl()
     if (mION) {
         mION->put_instance();
     }
-    if (property_get_bool("camera.debug.dump.decoder", false)) {
+    if (property_get_bool("vendor.camhal.dump.usb.decoder", false)) {
         if (mDump) {
             delete mDump;
             mDump = NULL;
@@ -1461,7 +1461,7 @@ int HWVideoDecoderImpl::syncDecode(int in_fd, uint8_t*in_src, uint32_t in_size, 
 #endif
                            }
                             ret = 0;
-                            if (property_get_bool("camera.debug.dump.decoder", false)) {
+                            if (property_get_bool("vendor.camhal.dump.usb.decoder", false)) {
                                 char dumpOutPath[256];
                                 char dumpDecodePath[256];
                                 static int dumpIndex[4] = {0};
@@ -1589,7 +1589,7 @@ int HWVideoDecoderImpl::asyncDecodeDequeueOutput( Vector<StreamBuffer>& b, bool 
 #endif
                            }
                            ret = 0;
-                           if (property_get_bool("camera.debug.dump.decoder", false)) {
+                           if (property_get_bool("vendor.camhal.dump.usb.decoder", false)) {
                                 char dumpOutPath[256];
                                 char dumpDecodePath[256];
                                 static int dumpIndex[4] = {0};
