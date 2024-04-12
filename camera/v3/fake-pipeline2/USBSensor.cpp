@@ -430,7 +430,8 @@ status_t USBSensor::shutDown() {
     }
 
 #if defined(PREVIEW_DEWARP_ENABLE) || defined(PICTURE_DEWARP_ENABLE)
-    auto dewarpPortRange = std::make_pair(DEWARP_CAM2PORT_USB_PREVIEW, DEWARP_CAM2PORT_USB_CAPTURE);
+    auto dewarpPortRange = std::make_pair(DEWARP_CAM2PORT_USB_PREVIEW,
+        DEWARP_CAM2PORT_USB_TRANSITION);
     DeWarp::putInstance(dewarpPortRange);
 #endif
 
@@ -478,7 +479,8 @@ status_t USBSensor::streamOff(channel ch) {
     }
 
 #if defined(PREVIEW_DEWARP_ENABLE) || defined(PICTURE_DEWARP_ENABLE)
-    auto dewarpPortRange = std::make_pair(DEWARP_CAM2PORT_USB_PREVIEW, DEWARP_CAM2PORT_USB_CAPTURE);
+    auto dewarpPortRange = std::make_pair(DEWARP_CAM2PORT_USB_PREVIEW,
+        DEWARP_CAM2PORT_USB_TRANSITION);
     DeWarp::putInstance(dewarpPortRange);
 #endif
 

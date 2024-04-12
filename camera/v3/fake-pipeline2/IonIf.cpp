@@ -112,7 +112,7 @@ uint8_t* IONInterface::alloc_buffer(size_t size, int* share_fd, bufferMode mode)
         CAMHAL_LOGE("cpu_ptr is NULL");
     pBuffer->vaddr = cpu_ptr;
 
-    CAMHAL_LOGE("vaddr=%p, share_fd = %d",pBuffer->vaddr,pBuffer->share_fd);
+    CAMHAL_LOGE("size %zu, vaddr=%p, share_fd = %d", size, pBuffer->vaddr,pBuffer->share_fd);
     *share_fd = pBuffer->share_fd;
     return pBuffer->vaddr;
 }

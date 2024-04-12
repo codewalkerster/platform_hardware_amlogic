@@ -132,8 +132,6 @@ namespace android {
                              int out_width, int out_height, int out_bufferCount);
             int getDecOut(Vector<StreamBuffer>& b);
             int HWDecodeToNV21(uint8_t* src, uint32_t src_length, Vector<StreamBuffer>& b, bool isJpegRequest);
-            void determineDecoderStreamType();
-            void determineDecoderWorkMode();
             int SensorInit(int idx);
             void InitVideoInfo(int idx);
             int camera_open(int idx);

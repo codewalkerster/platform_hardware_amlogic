@@ -885,7 +885,7 @@ int ge2dTransform::ge2d_keep_ration_scale(int dst_fd,int dst_fmt, size_t dst_w,
                 size_t dst_h,int src_fd, size_t src_w, size_t src_h) {
 
     //ATRACE_CALL();
-    //CAMHAL_LOGD("%s: w=%d, h=%d, src %d %d", __FUNCTION__,dst_w,dst_h,src_w,src_h);
+    CAMHAL_LOGVV("%s: dst %zux%zu, src %zux%zu", __FUNCTION__, dst_w, dst_h, src_w, src_h);
     aml_ge2d_t amlge2d;
     int src_rect_start_row = 0;
     int src_rect_start_col = 0;
@@ -993,7 +993,7 @@ int ge2dTransform::ge2d_keep_ration_scale(int dst_fd,int dst_fmt, size_t dst_w,
                 size_t dst_h,int src_fd, size_t src_w, size_t src_h, size_t format_w, size_t format_h) {
 
     //ATRACE_CALL();
-    //CAMHAL_LOGD("%s: w=%d, h=%d, src %d %d", __FUNCTION__,dst_w,dst_h,src_w,src_h);
+    CAMHAL_LOGVV("%s: w=%zu, h=%zu, src %zu %zu", __FUNCTION__, dst_w, dst_h, src_w, src_h);
     aml_ge2d_t amlge2d;
     int src_rect_start_row = 0;
     int src_rect_start_col = 0;

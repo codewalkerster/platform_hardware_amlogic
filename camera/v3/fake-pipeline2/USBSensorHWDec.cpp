@@ -212,56 +212,6 @@ void USBSensorHWDec::InitVideoInfo(int idx)
     }
 }
 
-void USBSensorHWDec::determineDecoderStreamType()
-{
-    int v4l2OutPixFmt = getOutputFormat();
-    if (V4L2_PIX_FMT_H264 == v4l2OutPixFmt) {
-        CAMHAL_LOGI("%s: decoder stream type h264 stream", __FUNCTION__);
-        mDecoderStreamType = H264_STREAM;
-        return ;
-    }
-    else if (V4L2_PIX_FMT_MJPEG == v4l2OutPixFmt) {
-        CAMHAL_LOGE("%s: decoder stream type mjpeg stream", __FUNCTION__);
-        mDecoderStreamType = MJPEG_STREAM;
-        return ;
-    }
-    else if (V4L2_PIX_FMT_HEVC == v4l2OutPixFmt) {
-        CAMHAL_LOGE("%s: decoder stream type hevc stream", __FUNCTION__);
-        mDecoderStreamType = HEVC_STREAM;
-        return ;
-    }
-
-    CAMHAL_LOGE("%s: can not determin decoder stream type,set to mjpeg", __FUNCTION__);
-    mDecoderStreamType = MJPEG_STREAM;
-
-}
-
-void USBSensorHWDec::determineDecoderWorkMode()
-{
-    int v4l2OutPixFmt = getOutputFormat();
-
-    // if prop is set. follow prop.
-    if (property_get_bool("vendor.media.camera.usb.asyncdec", false) && v4l2OutPixFmt != V4L2_PIX_FMT_YUYV) {
-        CAMHAL_LOGI("%s: got prop, decoder work mode async", __FUNCTION__);
-        mHWDecoderWorkMode = ASYNC_DECODE_MODE;
-        return ;
-    }
-
-    // default behavior: h264 use async mode; mjpeg use sync mode;
-    if (V4L2_PIX_FMT_H264 == v4l2OutPixFmt || V4L2_PIX_FMT_HEVC == v4l2OutPixFmt) {
-        CAMHAL_LOGI("%s: decoder work mode async", __FUNCTION__);
-        mHWDecoderWorkMode = ASYNC_DECODE_MODE;
-        return ;
-    } else if (v4l2OutPixFmt == V4L2_PIX_FMT_MJPEG) {
-        CAMHAL_LOGI("%s: decoder work mode sync", __FUNCTION__);
-        mHWDecoderWorkMode = SYNC_DECODE_MODE;
-        return;
-    }
-
-    CAMHAL_LOGW("%s: unknown pix fmt. default to decoder work mode sync ", __FUNCTION__);
-    mHWDecoderWorkMode = SYNC_DECODE_MODE;
-}
-
 int USBSensorHWDec::SensorInit(int idx)
 {
     CAMHAL_LOGV("%s: E", __FUNCTION__);
@@ -287,8 +237,6 @@ int USBSensorHWDec::SensorInit(int idx)
     InitVideoInfo(idx);
     mVinfo->camera_init();
     setIOBufferNum();
-    determineDecoderStreamType();
-    determineDecoderWorkMode();
     getStreamInfo(mStreamInfos);
     mSensorType = SENSOR_USB;
     return ret;
@@ -392,7 +340,8 @@ status_t USBSensorHWDec::setOutputFormat(int width, int height,
                 pixelformat = ret;
                 mDecoderStreamType = H264_STREAM;
                 mHWDecoderWorkMode = ASYNC_DECODE_MODE;
-                CAMHAL_LOGW("%s support 4k, set H264 %dx%d", __FUNCTION__, width, height);
+                CAMHAL_LOGW("%s support 4k, set H264 %dx%d, stream type %d, decoder work mode %d",
+                    __FUNCTION__, width, height, mDecoderStreamType, mHWDecoderWorkMode);
                 break;
             }
         }
@@ -401,7 +350,11 @@ status_t USBSensorHWDec::setOutputFormat(int width, int height,
             pixelformat = ret;
             mDecoderStreamType = MJPEG_STREAM;
             mHWDecoderWorkMode = ASYNC_DECODE_MODE;
-            CAMHAL_LOGW("%s set mjpeg %dx%d", __FUNCTION__, width, height);
+            if (property_get_bool("vendor.media.camera.usb.syncdec", false)) {
+                mHWDecoderWorkMode = SYNC_DECODE_MODE;
+            }
+            CAMHAL_LOGW("%s set mjpeg %dx%d, stream type %d, decoder work mode %d",
+                __FUNCTION__, width, height, mDecoderStreamType, mHWDecoderWorkMode);
             break;
         }
         ret = getOutputFormat(width, height, V4L2_PIX_FMT_H264);
@@ -409,7 +362,8 @@ status_t USBSensorHWDec::setOutputFormat(int width, int height,
             pixelformat = ret;
             mDecoderStreamType = H264_STREAM;
             mHWDecoderWorkMode = ASYNC_DECODE_MODE;
-            CAMHAL_LOGW("%s set H264 %dx%d", __FUNCTION__, width, height);
+            CAMHAL_LOGW("%s set H264 %dx%d, stream type %d, decoder work mode %d",
+                __FUNCTION__, width, height, mDecoderStreamType, mHWDecoderWorkMode);
             break;
         }
         ret = getOutputFormat(width, height, V4L2_PIX_FMT_HEVC);
@@ -417,21 +371,24 @@ status_t USBSensorHWDec::setOutputFormat(int width, int height,
             pixelformat = ret;
             mDecoderStreamType = HEVC_STREAM;
             mHWDecoderWorkMode = ASYNC_DECODE_MODE;
-            CAMHAL_LOGW("%s set H265 %dx%d", __FUNCTION__, width, height);
+            CAMHAL_LOGW("%s set H265 %dx%d, stream type %d, decoder work mode %d",
+                __FUNCTION__, width, height, mDecoderStreamType, mHWDecoderWorkMode);
             break;
         }
         ret = getOutputFormat(width, height, V4L2_PIX_FMT_YUYV);
         if (ret) {
             pixelformat = ret;
             mHWDecoderWorkMode = SYNC_DECODE_MODE;
-            CAMHAL_LOGW("%s set yuyv %dx%d", __FUNCTION__, width, height);
+            CAMHAL_LOGW("%s set yuyv %dx%d, decoder work mode %d",
+                __FUNCTION__, width, height, mHWDecoderWorkMode);
             break;
         }
         ret = getOutputFormat(width, height, V4L2_PIX_FMT_NV21);
         if (ret) {
             pixelformat = ret;
             mHWDecoderWorkMode = SYNC_DECODE_MODE;
-            CAMHAL_LOGW("%s set nv21 %dx%d", __FUNCTION__, width, height);
+            CAMHAL_LOGW("%s set nv21 %dx%d, decoder work mode %d",
+                __FUNCTION__, width, height, mHWDecoderWorkMode);
             break;
         }
     } while (0);
@@ -546,7 +503,8 @@ status_t USBSensorHWDec::shutDown() {
     CAMHAL_LOGD("%s: line %d ", __FUNCTION__, __LINE__);
 
 #if defined(PREVIEW_DEWARP_ENABLE) || defined(PICTURE_DEWARP_ENABLE)
-    auto dewarpPortRange = std::make_pair(DEWARP_CAM2PORT_USB_PREVIEW, DEWARP_CAM2PORT_USB_CAPTURE);
+    auto dewarpPortRange = std::make_pair(DEWARP_CAM2PORT_USB_PREVIEW,
+        DEWARP_CAM2PORT_USB_TRANSITION);
     DeWarp::putInstance(dewarpPortRange);
     CameraConfig::deleteInstance(dewarpPortRange);
 #endif
@@ -576,7 +534,8 @@ status_t USBSensorHWDec::streamOff(channel ch) {
     mVinfo->releasebuf_and_stop_capturing();
 
 #if defined(PREVIEW_DEWARP_ENABLE) || defined(PICTURE_DEWARP_ENABLE)
-    auto dewarpPortRange = std::make_pair(DEWARP_CAM2PORT_USB_PREVIEW, DEWARP_CAM2PORT_USB_CAPTURE);
+    auto dewarpPortRange = std::make_pair(DEWARP_CAM2PORT_USB_PREVIEW,
+        DEWARP_CAM2PORT_USB_TRANSITION);
     DeWarp::putInstance(dewarpPortRange);
 #endif
 
@@ -705,7 +664,9 @@ read_queue:
     tv.tv_sec = 0;
     tv.tv_usec = 0;
     r = select(mVinfo->fd + 1, &fds, NULL, NULL, &tv);
-    if (r > 0) {
+    if (r > 0 &&
+            (mVinfo->preview.format.fmt.pix.width * mVinfo->preview.format.fmt.pix.height
+                < 3840 * 2160)) {
         // yes, there are more filled buffers. queue this one, dq next;
         if ( 0 > mVinfo->putback_frame() ) {
             CAMHAL_LOGE("%s: VIDIOC_QBUF/flush failed, errno=%d\n", __func__, errno);
