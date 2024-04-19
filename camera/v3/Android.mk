@@ -253,7 +253,8 @@ LOCAL_SRC_FILES := \
     fake-pipeline2/HDMIToCSISensor.cpp \
     fake-pipeline2/HDMISensor.cpp \
     hdmiutils/HDMIStatus.cpp \
-    CamHalDebugLog.cpp
+    CamHalDebugLog.cpp \
+    camera_data_saver.cpp
 
 LOCAL_SRC_FILES += \
     fake-pipeline2/V4l2MediaSensor.cpp \

@@ -15,6 +15,10 @@
 
 #include "ispMgr.h"
 #include <CamHalDebugLog.h>
+#include "camera_data_saver.h"
+
+// copy from driver; aml_isp/hw/ folder. please keep the same.
+#include "aml_isp_cfg.h"
 
 namespace android {
 
@@ -234,6 +238,36 @@ status_t IspMgr::start() {
     for (int i = 0; i < kIspParamsNbBuffers; i++) {
         (IspMgr::mIspIF.alg2User)(mId, alg_init);
         (IspMgr::mIspIF.alg2Kernel)(mId, mISParams.mem[i].addr);
+
+        if (property_get_bool("vendor.camhal.mipi.save_and_use_3a", false)) {
+            aisp_param_t *isp_param = (aisp_param_t *)mISParams.mem[i].addr;
+
+            // memcpy from isp_param_saved to isp_param_dst will lead to black images;
+            // only copy awb wb_gain & ae isp digital gain params.
+
+            // ae
+            isp_param->pvalid.aisp_dgain = 1;
+            CameraDataSaver::getInstance()->load(mId, ISP_DGAIN, (uint8_t *)&isp_param->dgain,  sizeof(isp_param->dgain));
+
+            // awb
+            isp_param->pvalid.aisp_wb_change = 1;
+            CameraDataSaver::getInstance()->load(mId, ISP_AWB_GAIN, (uint8_t *)&isp_param->wb_change.wb_gain[0], sizeof(isp_param->wb_change.wb_gain));
+
+            // ltm cfg
+            isp_param->pvalid.aisp_ltm = 1;
+            isp_param->pvalid.aisp_ltm_enhc = 1;
+
+            CameraDataSaver::getInstance()->load(mId, ISP_LTM_CFG, (uint8_t *)&isp_param->ltm_cfg, sizeof(isp_param->ltm_cfg));
+            CameraDataSaver::getInstance()->load(mId, ISP_LTM_ENHC, (uint8_t *)&isp_param->ltm_enhc_cfg, sizeof(isp_param->ltm_enhc_cfg));
+
+            if (property_get_bool("vendor.camera.hdr.enable", false)) {
+                // wdr cfg
+                isp_param->pvalid.aisp_wdr = 1;
+                CameraDataSaver::getInstance()->load(mId, ISP_WDR_CFG, (uint8_t *)&isp_param->wdr_cfg, sizeof(isp_param->wdr_cfg));
+            }
+            CAMHAL_LOGD("use saved isp awb wb_gain ae digital gain wdr cfg ltm");
+        }
+
         /* queue buffers */
         CAMHAL_LOGD("[params] begin to Queue buf.");
         struct v4l2_buffer v4l2_buf;
@@ -347,6 +381,23 @@ status_t IspMgr::stop() {
                 CAMHAL_LOGW("Flush read not completed.");
         }
     }
+
+    if (property_get_bool("vendor.camhal.mipi.save_and_use_3a", false)) {
+        // save isp params
+        aisp_param_t *isp_param = (aisp_param_t *)mISParams.mem[0].addr;
+        CameraDataSaver::getInstance()->save(mId, ISP_AWB_GAIN, (uint8_t *)&isp_param->wb_change.wb_gain[0], sizeof(isp_param->wb_change.wb_gain));
+        CameraDataSaver::getInstance()->save(mId, ISP_DGAIN,    (uint8_t *)&isp_param->dgain,            sizeof(isp_param->dgain));
+        // ltm
+        CameraDataSaver::getInstance()->save(mId, ISP_LTM_CFG,  (uint8_t *)&isp_param->ltm_cfg,          sizeof(isp_param->ltm_cfg));
+        CameraDataSaver::getInstance()->save(mId, ISP_LTM_ENHC,  (uint8_t *)&isp_param->ltm_enhc_cfg,    sizeof(isp_param->ltm_enhc_cfg));
+
+        if (property_get_bool("vendor.camera.hdr.enable", false)) {
+            // wdr cfg
+            CameraDataSaver::getInstance()->save(mId, ISP_WDR_CFG,  (uint8_t *)&isp_param->wdr_cfg,          sizeof(isp_param->wdr_cfg));
+        }
+        CAMHAL_LOGD("save isp awb gain & dgain wdr cfg ltm ltm-lut");
+    }
+
     /* stream off */
     rc = v4l2_video_stream_off(mMediaStream->video_stats, V4L2_BUF_TYPE_VIDEO_CAPTURE);
     if (rc < 0) {

@@ -26,6 +26,7 @@
 #include <sys/types.h>
 #include <signal.h>
 #include <semaphore.h>
+#include <cutils/properties.h>
 
 #include "CamHalDebugLog.h"
 
@@ -35,11 +36,19 @@
 #include "imx290_wdr_calibration.h"
 #include "imx290_api.h"
 
+#include "camera_data_saver.h"
+
 #define MAX_SENSOR_NUM  2
 
 typedef struct
 {
     int  enWDRMode = 0;
+
+    uint32_t  again_high_alg_value; // also for sdr again_reg_value;
+    uint32_t  again_low_alg_value;
+    uint32_t  inttime_long_alg_value; // also for sdr inttime_reg_value;
+    uint32_t  inttime_short_alg_value;
+
     ALG_SENSOR_DEFAULT_S snsAlgInfo;
     struct media_entity  * sensor_ent;
 } ISP_SNS_STATE_S;
@@ -74,6 +83,11 @@ void cmos_set_sensor_entity_imx290(int ViPipe, struct media_entity * sensor_ent,
     memset(g_sensorPtr[ViPipe], 0, sizeof(ISP_SNS_STATE_S));
     g_sensorPtr[ViPipe]->sensor_ent = sensor_ent;
     g_sensorPtr[ViPipe]->enWDRMode = wdr;
+
+    g_sensorPtr[ViPipe]->snsAlgInfo.u32AGain[0] = 0xffff;
+    g_sensorPtr[ViPipe]->snsAlgInfo.u32Inttime[0][0] = 0xffff;
+    g_sensorPtr[ViPipe]->snsAlgInfo.u32Inttime[1][0] = 0xffff;
+
     // now only support 30fps sdr and wdr;
     //g_sensorPtr[ViPipe]->snsAlgInfo.fps = fps;
 }
@@ -151,6 +165,17 @@ void cmos_clean_up_imx290(int ViPipe)
         return;
     }
 
+    if (property_get_bool("vendor.camhal.mipi.save_and_use_3a", false)) {
+        android::CameraDataSaver::getInstance()->save(ViPipe, SENSOR_AGAIN_HIGH, (uint8_t *)&g_sensorPtr[ViPipe]->again_high_alg_value,  sizeof(uint32_t));
+        android::CameraDataSaver::getInstance()->save(ViPipe, SENSOR_AGAIN_LOW, (uint8_t *)&g_sensorPtr[ViPipe]->again_low_alg_value,  sizeof(uint32_t));
+
+        android::CameraDataSaver::getInstance()->save(ViPipe, SENSOR_EXPOSURE_LONG, (uint8_t *)&g_sensorPtr[ViPipe]->inttime_long_alg_value, sizeof(uint32_t));
+        android::CameraDataSaver::getInstance()->save(ViPipe, SENSOR_EXPOSURE_SHORT, (uint8_t *)&g_sensorPtr[ViPipe]->inttime_short_alg_value,  sizeof(uint32_t));
+        CAMHAL_LOGD("save again high %d low %d; exp long %d short %d",
+           g_sensorPtr[ViPipe]->again_high_alg_value, g_sensorPtr[ViPipe]->again_low_alg_value,
+           g_sensorPtr[ViPipe]->inttime_long_alg_value, g_sensorPtr[ViPipe]->inttime_short_alg_value);
+    }
+
     if (g_sensorPtr[ViPipe]) {
         free(g_sensorPtr[ViPipe]);
         g_sensorPtr[ViPipe] = 0;
@@ -161,6 +186,13 @@ void cmos_clean_up_imx290(int ViPipe)
 int cmos_get_ae_default_imx290(int ViPipe, ALG_SENSOR_DEFAULT_S *pstAeSnsDft)
 {
     CAMHAL_LOGD("cmos_get_ae_default\n");
+
+    // default initial value is for SDR;
+    uint32_t again_high_alg_value = (0x02 << LOG2_GAIN_SHIFT);
+    uint32_t inttime_sdr_alg_value = 0;
+
+    uint32_t inttime_wdr_long_alg_value = 0;
+    uint32_t inttime_wdr_short_alg_value = 0;
 
     g_sensorPtr[ViPipe]->snsAlgInfo.active.width = 1920;
     g_sensorPtr[ViPipe]->snsAlgInfo.active.height = 1080;
@@ -195,6 +227,17 @@ int cmos_get_ae_default_imx290(int ViPipe, ALG_SENSOR_DEFAULT_S *pstAeSnsDft)
 
         // same as integration_time_max
         g_sensorPtr[ViPipe]->snsAlgInfo.integration_time_limit = (205 - 3)<<SHUTTER_TIME_SHIFT;
+
+        inttime_wdr_long_alg_value = ((2 * g_sensorPtr[ViPipe]->snsAlgInfo.total.height - (0x453 + 1))<< SHUTTER_TIME_SHIFT);
+        inttime_wdr_short_alg_value = ((205 - (0x02 + 1)) << SHUTTER_TIME_SHIFT);
+
+        if (property_get_bool("vendor.camhal.mipi.save_and_use_3a", false)) {
+            // load from camera data saver. if load fail (for the first time after power on)
+            // use the INIT_WDR_XX_REG_VALUE
+            android::CameraDataSaver::getInstance()->load(ViPipe, SENSOR_AGAIN_HIGH, (uint8_t *)&again_high_alg_value, sizeof(uint32_t));
+            android::CameraDataSaver::getInstance()->load(ViPipe, SENSOR_EXPOSURE_LONG, (uint8_t *)&inttime_wdr_long_alg_value, sizeof(uint32_t));
+            android::CameraDataSaver::getInstance()->load(ViPipe, SENSOR_EXPOSURE_SHORT, (uint8_t *)&inttime_wdr_short_alg_value, sizeof(uint32_t));
+        }
     } else {
         g_sensorPtr[ViPipe]->snsAlgInfo.sensor_exp_number = 1;
         g_sensorPtr[ViPipe]->snsAlgInfo.bits = 12;
@@ -206,6 +249,15 @@ int cmos_get_ae_default_imx290(int ViPipe, ALG_SENSOR_DEFAULT_S *pstAeSnsDft)
         g_sensorPtr[ViPipe]->snsAlgInfo.integration_time_max = (g_sensorPtr[ViPipe]->snsAlgInfo.total.height - 2)<<SHUTTER_TIME_SHIFT;
         g_sensorPtr[ViPipe]->snsAlgInfo.integration_time_long_max = (g_sensorPtr[ViPipe]->snsAlgInfo.total.height - 2)<<SHUTTER_TIME_SHIFT;
         g_sensorPtr[ViPipe]->snsAlgInfo.integration_time_limit = (g_sensorPtr[ViPipe]->snsAlgInfo.total.height - 2)<<SHUTTER_TIME_SHIFT;
+
+        inttime_sdr_alg_value = (g_sensorPtr[ViPipe]->snsAlgInfo.total.height - (0x0181 + 1))<< SHUTTER_TIME_SHIFT;;
+
+        if (property_get_bool("vendor.camhal.mipi.save_and_use_3a", false)) {
+            // load from camera data saver. if load fail (for the first time after power on)
+            // keep use the initial value.
+            android::CameraDataSaver::getInstance()->load(ViPipe, SENSOR_AGAIN_HIGH, (uint8_t *)&again_high_alg_value, sizeof(uint32_t));
+            android::CameraDataSaver::getInstance()->load(ViPipe, SENSOR_EXPOSURE_LONG, (uint8_t *)&inttime_sdr_alg_value, sizeof(uint32_t));
+        }
     }
 
     g_sensorPtr[ViPipe]->snsAlgInfo.dgain_log2 = 0;
@@ -219,23 +271,26 @@ int cmos_get_ae_default_imx290(int ViPipe, ALG_SENSOR_DEFAULT_S *pstAeSnsDft)
     g_sensorPtr[ViPipe]->snsAlgInfo.again_log2_max = (72/6)<<(LOG2_GAIN_SHIFT);
     g_sensorPtr[ViPipe]->snsAlgInfo.again_high_log2_max = (72/6)<<(LOG2_GAIN_SHIFT);
     // again reg initial value is 0x02;
-    g_sensorPtr[ViPipe]->snsAlgInfo.again_log2 = 0x02 << LOG2_GAIN_SHIFT;
-    g_sensorPtr[ViPipe]->snsAlgInfo.again_high_log2 = 0x02 << LOG2_GAIN_SHIFT;
+    g_sensorPtr[ViPipe]->snsAlgInfo.again_log2 = again_high_alg_value;
+    g_sensorPtr[ViPipe]->snsAlgInfo.again_high_log2 = again_high_alg_value;
     g_sensorPtr[ViPipe]->snsAlgInfo.again_high_accuracy_fmt = 1;
     g_sensorPtr[ViPipe]->snsAlgInfo.again_high_accuracy = (1<<(LOG2_GAIN_SHIFT))/20;
     g_sensorPtr[ViPipe]->snsAlgInfo.again_accuracy_fmt = 1;
     g_sensorPtr[ViPipe]->snsAlgInfo.again_accuracy = (1<<(LOG2_GAIN_SHIFT))/20;
     if (g_sensorPtr[ViPipe]->enWDRMode == 1) {
         // calc from initial value; 2 * vmax - (SHS2 + 1);
-        g_sensorPtr[ViPipe]->snsAlgInfo.expos_lines = (2 * g_sensorPtr[ViPipe]->snsAlgInfo.total.height - (0x453 + 1))<< SHUTTER_TIME_SHIFT;
+        g_sensorPtr[ViPipe]->snsAlgInfo.expos_lines = inttime_wdr_long_alg_value;
         g_sensorPtr[ViPipe]->snsAlgInfo.expos_accuracy = (1<<(SHUTTER_TIME_SHIFT));
 
         // calc from initial value; RHS1 - (SHS1 + 1)
-        g_sensorPtr[ViPipe]->snsAlgInfo.sexpos_lines = (205 - (0x02 + 1))<< SHUTTER_TIME_SHIFT;
+        g_sensorPtr[ViPipe]->snsAlgInfo.sexpos_lines = inttime_wdr_short_alg_value;
         g_sensorPtr[ViPipe]->snsAlgInfo.sexpos_accuracy = (1<<(SHUTTER_TIME_SHIFT));
+        CAMHAL_LOGI("exp lines %d, short exp lined %d", (g_sensorPtr[ViPipe]->snsAlgInfo.expos_lines>>SHUTTER_TIME_SHIFT),
+                (g_sensorPtr[ViPipe]->snsAlgInfo.sexpos_lines>>SHUTTER_TIME_SHIFT));
+
     } else {
         // calc from initial value: vmax - (SHS1 + 1)
-        g_sensorPtr[ViPipe]->snsAlgInfo.expos_lines = (g_sensorPtr[ViPipe]->snsAlgInfo.total.height - (0x0181 + 1))<< SHUTTER_TIME_SHIFT;
+        g_sensorPtr[ViPipe]->snsAlgInfo.expos_lines = inttime_sdr_alg_value;
         g_sensorPtr[ViPipe]->snsAlgInfo.expos_accuracy = (1<<(SHUTTER_TIME_SHIFT));
         g_sensorPtr[ViPipe]->snsAlgInfo.sexpos_lines = (1<<(SHUTTER_TIME_SHIFT));
         g_sensorPtr[ViPipe]->snsAlgInfo.sexpos_accuracy = (1<<(SHUTTER_TIME_SHIFT));
@@ -250,17 +305,31 @@ int cmos_get_ae_default_imx290(int ViPipe, ALG_SENSOR_DEFAULT_S *pstAeSnsDft)
     CAMHAL_LOGD("cmos_get_ae_default++++++\n");
 
     memcpy(pstAeSnsDft, &g_sensorPtr[ViPipe]->snsAlgInfo, sizeof(ALG_SENSOR_DEFAULT_S));
+    // set initial again and inttime reg value to sensor regs.
+    {
+        cmos_again_calc_table_imx290(ViPipe, &again_high_alg_value, &again_high_alg_value);
+
+        if (g_sensorPtr[ViPipe]->enWDRMode == 1) {
+            cmos_inttime_calc_table_imx290(ViPipe, inttime_wdr_long_alg_value, inttime_wdr_short_alg_value, 8, 8);
+        } else {
+            cmos_inttime_calc_table_imx290(ViPipe, inttime_sdr_alg_value, 8, 8, 8);
+        }
+        cmos_alg_update_imx290(ViPipe);
+    }
 
     return 0;
 }
 
-void cmos_again_calc_table_imx290(int ViPipe, uint32_t *pu32AgainLin, uint32_t *pu32AgainDb)
+void cmos_again_calc_table_imx290(int ViPipe, uint32_t  *sns_hc_again, uint32_t *sns_again)
 {
-    //CAMHAL_LOGD("cmos_again_calc_table: %d, %d\n", *pu32AgainLin, *pu32AgainDb);
+    //CAMHAL_LOGD("cmos_again_calc_table: %d, %d\n", *sns_hc_again, *sns_again);
     uint32_t again_reg;
     uint32_t u32AgainDb;
 
-    u32AgainDb = *pu32AgainDb;
+    g_sensorPtr[ViPipe]->again_high_alg_value = *sns_hc_again;
+    g_sensorPtr[ViPipe]->again_low_alg_value = *sns_again;
+
+    u32AgainDb = *sns_again;
     u32AgainDb = ((u32AgainDb*20)>>LOG2_GAIN_SHIFT);
 
     again_reg = (uint32_t)(u32AgainDb);
@@ -287,6 +356,9 @@ void cmos_inttime_calc_table_imx290(int ViPipe, uint32_t pu32ExpL, uint32_t pu32
 
     uint32_t shutter_time_lines_short = pu32ExpS >> SHUTTER_TIME_SHIFT;
 
+    g_sensorPtr[ViPipe]->inttime_long_alg_value = pu32ExpL;
+    g_sensorPtr[ViPipe]->inttime_short_alg_value = pu32ExpS;
+
     //CAMHAL_LOGD("expo: %d, %d\n", shutter_time_lines, shutter_time_lines_short);
     if (g_sensorPtr[ViPipe]->enWDRMode == 0) {
         // sdr mode;
@@ -300,7 +372,6 @@ void cmos_inttime_calc_table_imx290(int ViPipe, uint32_t pu32ExpL, uint32_t pu32
             shutter_time_lines = (shutter_time_line_each_frame - 2);
 
     } else {
-
         shutter_time_lines_short = 205 - shutter_time_lines_short - 1;
 
         // now shutter_time_lines_short is reg value.
@@ -320,7 +391,9 @@ void cmos_inttime_calc_table_imx290(int ViPipe, uint32_t pu32ExpL, uint32_t pu32
             shutter_time_lines = (shutter_time_line_each_frame * 2 - 2);
     }
 
-    if (g_sensorPtr[ViPipe]->snsAlgInfo.u32Inttime[0][0] != shutter_time_lines || g_sensorPtr[ViPipe]->snsAlgInfo.u32Inttime[1][0] != shutter_time_lines_short) {
+    if (g_sensorPtr[ViPipe]->snsAlgInfo.u32Inttime[0][0] != shutter_time_lines ||
+        g_sensorPtr[ViPipe]->snsAlgInfo.u32Inttime[1][0] != shutter_time_lines_short) {
+
         g_sensorPtr[ViPipe]->snsAlgInfo.u16IntTimeCnt = g_sensorPtr[ViPipe]->snsAlgInfo.integration_time_apply_delay + 1;
         g_sensorPtr[ViPipe]->snsAlgInfo.u32Inttime[0][0] = shutter_time_lines;
         g_sensorPtr[ViPipe]->snsAlgInfo.u32Inttime[1][0] = shutter_time_lines_short;
@@ -396,7 +469,7 @@ void cmos_alg_update_imx290(int ViPipe)
                 // wdr: SHS2 for long exposure; SHS1 for short exposure; differs from imx415;
                 expo.value = (shutter_time_lines << 16) | shutter_time_lines_short;
                 v4l2_subdev_set_ctrls(g_sensorPtr[ViPipe]->sensor_ent, &expo, 1);
-                //CAMHAL_LOGD("shutter_time_lines 0x%x (small SHS2 f-0) shutter_time_lines_short 0x%x(big SHS1 f-1); 0x%x", shutter_time_lines, shutter_time_lines_short, expo.value);
+                //CAMHAL_LOGD("shutter_time_lines %d (SHS2) shutter_time_lines_short %d(SHS1); 0x%x", shutter_time_lines, shutter_time_lines_short, expo.value);
             }
         }
     }

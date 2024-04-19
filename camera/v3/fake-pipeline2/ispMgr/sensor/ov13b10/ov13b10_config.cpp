@@ -14,6 +14,7 @@
 #include <stdio.h>
 #include <string.h>
 #include <fcntl.h>
+#include <math.h>
 #include <pthread.h>
 #include <linux/fb.h>
 #include <sys/mman.h>
@@ -26,6 +27,7 @@
 #include <sys/types.h>
 #include <signal.h>
 #include <semaphore.h>
+#include <cutils/properties.h>
 
 #include "CamHalDebugLog.h"
 
@@ -37,12 +39,15 @@
 #include "ov13b10x36_wdr_calibration.h"
 
 #include "ov13b10_api.h"
+#include "camera_data_saver.h"
 
 #define MAX_SENSOR_NUM  2
 
 typedef struct
 {
     int  enWDRMode;
+    uint32_t  again_high_alg_value;
+    uint32_t  inttime_long_alg_value;
     ALG_SENSOR_DEFAULT_S snsAlgInfo;
     struct media_entity  * sensor_ent;
 } ISP_SNS_STATE_S;
@@ -176,6 +181,11 @@ void cmos_clean_up_ov13b10(int ViPipe)
         return;
     }
 
+    if (property_get_bool("vendor.camhal.mipi.save_and_use_3a", false)) {
+        android::CameraDataSaver::getInstance()->save(ViPipe, SENSOR_AGAIN_HIGH, (uint8_t *)&g_sensorPtr[ViPipe]->again_high_alg_value,  sizeof(uint32_t));
+        android::CameraDataSaver::getInstance()->save(ViPipe, SENSOR_EXPOSURE_LONG, (uint8_t *)&g_sensorPtr[ViPipe]->inttime_long_alg_value, sizeof(uint32_t));
+    }
+
     if (g_sensorPtr[ViPipe]) {
         free(g_sensorPtr[ViPipe]);
         g_sensorPtr[ViPipe] = 0;
@@ -185,6 +195,15 @@ void cmos_clean_up_ov13b10(int ViPipe)
 int cmos_get_ae_default_ov13b10(int ViPipe, ALG_SENSOR_DEFAULT_S *pstAeSnsDft)
 {
     CAMHAL_LOGD("cmos_get_ae_default\n");
+
+    uint32_t sdr_again_alg_value = (0x0 << LOG2_GAIN_SHIFT);
+    uint32_t sdr_inttime_alg_value = (0xcb8 << LOG2_GAIN_SHIFT);
+
+    if (property_get_bool("vendor.camhal.mipi.save_and_use_3a", false)) {
+        // load from camera data saver. if load fail (for the first time after power on), keep use the init reg value.
+        android::CameraDataSaver::getInstance()->load(ViPipe, SENSOR_AGAIN_HIGH, (uint8_t *)&sdr_again_alg_value,  sizeof(uint32_t));
+        android::CameraDataSaver::getInstance()->load(ViPipe, SENSOR_EXPOSURE_LONG, (uint8_t *)&sdr_inttime_alg_value, sizeof(uint32_t));
+    }
 
     g_sensorPtr[ViPipe]->snsAlgInfo.active.width = 4208;
     g_sensorPtr[ViPipe]->snsAlgInfo.active.height = 3120;
@@ -224,8 +243,9 @@ int cmos_get_ae_default_ov13b10(int ViPipe, ALG_SENSOR_DEFAULT_S *pstAeSnsDft)
     g_sensorPtr[ViPipe]->snsAlgInfo.again_high_accuracy_fmt = 1;
     g_sensorPtr[ViPipe]->snsAlgInfo.again_high_accuracy = (1<<(LOG2_GAIN_SHIFT))/20;
     g_sensorPtr[ViPipe]->snsAlgInfo.again_accuracy_fmt = 1;
-    g_sensorPtr[ViPipe]->snsAlgInfo.again_log2 = 0x0<< LOG2_GAIN_SHIFT;
-    g_sensorPtr[ViPipe]->snsAlgInfo.expos_lines = (0x3D2<<(LOG2_GAIN_SHIFT));
+    g_sensorPtr[ViPipe]->snsAlgInfo.again_log2 = sdr_again_alg_value;
+    g_sensorPtr[ViPipe]->snsAlgInfo.again_high_log2 = sdr_again_alg_value;
+    g_sensorPtr[ViPipe]->snsAlgInfo.expos_lines = sdr_inttime_alg_value;
     g_sensorPtr[ViPipe]->snsAlgInfo.again_accuracy = (1<<(LOG2_GAIN_SHIFT))/20;
     g_sensorPtr[ViPipe]->snsAlgInfo.expos_accuracy = (1<<(SHUTTER_TIME_SHIFT));
     g_sensorPtr[ViPipe]->snsAlgInfo.sexpos_accuracy = (1<<(SHUTTER_TIME_SHIFT));
@@ -235,6 +255,13 @@ int cmos_get_ae_default_ov13b10(int ViPipe, ALG_SENSOR_DEFAULT_S *pstAeSnsDft)
     g_sensorPtr[ViPipe]->snsAlgInfo.gain_apply_delay = 0;
     g_sensorPtr[ViPipe]->snsAlgInfo.integration_time_apply_delay = 0;
     CAMHAL_LOGD("cmos_get_ae_default++++++\n");
+
+    // set initial again and inttime reg value to sensor regs.
+    {
+        cmos_again_calc_table_ov13b10(ViPipe, &sdr_again_alg_value, &sdr_again_alg_value);
+        cmos_inttime_calc_table_ov13b10(ViPipe, sdr_inttime_alg_value, 8, 8, 8);
+        cmos_alg_update_ov13b10(ViPipe);
+    }
 
     memcpy(pstAeSnsDft, &g_sensorPtr[ViPipe]->snsAlgInfo, sizeof(ALG_SENSOR_DEFAULT_S));
 
@@ -269,12 +296,14 @@ static int aisp_math_exp2( int64_t val, int32_t shift_in, int32_t shift_out )
     }
 }
 
-void cmos_again_calc_table_ov13b10(int ViPipe, uint32_t *pu32AgainLin, uint32_t *pu32AgainDb)
+void cmos_again_calc_table_ov13b10(int ViPipe, uint32_t  *sns_hc_again, uint32_t *sns_again)
 {
     //CAMHAL_LOGD("cmos_again_calc_table: %d, %d\n", *pu32AgainLin, *pu32AgainDb);
     uint32_t again_reg;
 
-    again_reg = aisp_math_exp2( *pu32AgainLin, SHUTTER_TIME_SHIFT, 8 );
+    g_sensorPtr[ViPipe]->again_high_alg_value = *sns_again;
+
+    again_reg = aisp_math_exp2( *sns_again, SHUTTER_TIME_SHIFT, 8 );
 
     if (again_reg > 0x7fff) {
         again_reg = 0x7fff;
@@ -296,8 +325,10 @@ void cmos_inttime_calc_table_ov13b10(int ViPipe, uint32_t pu32ExpL, uint32_t pu3
 {
     //CAMHAL_LOGD("cmos_inttime_calc_table: %d, %d, %d, %d\n", pu32ExpL, pu32ExpS, pu32ExpVS, pu32ExpVVS);
     uint32_t shutter_time_lines = pu32ExpL >> SHUTTER_TIME_SHIFT;
-
     uint32_t shutter_time_lines_short = pu32ExpS >> SHUTTER_TIME_SHIFT;
+
+    g_sensorPtr[ViPipe]->inttime_long_alg_value = pu32ExpL;
+
     //CAMHAL_LOGD("init times = %d  \n",shutter_time_lines);
     if (g_sensorPtr[ViPipe]->enWDRMode == 0) {
         if (shutter_time_lines > g_sensorPtr[ViPipe]->snsAlgInfo.total.height )
