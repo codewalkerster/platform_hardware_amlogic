@@ -34,6 +34,8 @@
 #include "imx577_sdr_calibration.h"
 #include "imx577_api.h"
 
+#define MAX_SENSOR_NUM  2
+
 typedef struct
 {
     int  enWDRMode;
@@ -41,80 +43,115 @@ typedef struct
     struct media_entity  * sensor_ent;
 } ISP_SNS_STATE_S;
 
-static ISP_SNS_STATE_S sensor;
+static ISP_SNS_STATE_S *g_sensorPtr[MAX_SENSOR_NUM];
 
-void cmos_set_sensor_entity_imx577(struct media_entity * sensor_ent, int wdr, int fps)
+static int cam_id_check(int id)
 {
-    sensor.sensor_ent = sensor_ent;
+    if (id >= MAX_SENSOR_NUM || id < 0)
+        return -1;
+    return 0;
 }
 
-void cmos_get_sensor_calibration_imx577(struct media_entity *sensor_ent, aisp_calib_info_t * calib)
+void cmos_set_sensor_entity_imx577(int ViPipe, struct media_entity * sensor_ent, int wdr, int fps)
+{
+    if (cam_id_check(ViPipe)) {
+        CAMHAL_LOGE("invalid id %d", ViPipe);
+        return;
+    }
+
+    if (g_sensorPtr[ViPipe]) {
+        delete g_sensorPtr[ViPipe];
+        g_sensorPtr[ViPipe] = 0;
+    }
+
+    g_sensorPtr[ViPipe] = (ISP_SNS_STATE_S*) malloc(sizeof(ISP_SNS_STATE_S));
+    if (g_sensorPtr[ViPipe] == 0) {
+        CAMHAL_LOGE("new isp sns state obj fail");
+        return;
+    }
+
+    memset(g_sensorPtr[ViPipe], 0, sizeof(ISP_SNS_STATE_S));
+    g_sensorPtr[ViPipe]->sensor_ent = sensor_ent;
+    g_sensorPtr[ViPipe]->enWDRMode = wdr;
+
+}
+
+void cmos_get_sensor_calibration_imx577(int ViPipe, struct media_entity *sensor_ent, aisp_calib_info_t * calib)
 {
     ALOGI("tnr global adj 128  custom 0719-1412\n");
-    if (sensor.enWDRMode == 1) {
-        ALOGE("imx577 don't have wdr mode");
+    if (g_sensorPtr[ViPipe]->enWDRMode == 1)
         Imx577SdrCalibration::dynamic_sdr_calibrations_init_imx577(calib);
-    } else
+    else
         Imx577SdrCalibration::dynamic_sdr_calibrations_init_imx577(calib);
+}
+
+void cmos_clean_up_imx577(int ViPipe)
+{
+    if (cam_id_check(ViPipe)) {
+        CAMHAL_LOGE("invalid id %d", ViPipe);
+        return;
+    }
+
+    if (g_sensorPtr[ViPipe]) {
+        free(g_sensorPtr[ViPipe]);
+        g_sensorPtr[ViPipe] = 0;
+    }
 }
 
 int cmos_get_ae_default_imx577(int ViPipe, ALG_SENSOR_DEFAULT_S *pstAeSnsDft)
 {
-    ALOGD("cmos_get_ae_default, imx577, wdrmode %d\n", sensor.enWDRMode);
+    ALOGD("cmos_get_ae_default, imx577, wdrmode %d\n", g_sensorPtr[ViPipe]->enWDRMode);
 
-    sensor.snsAlgInfo.active.width = 4048;
-    sensor.snsAlgInfo.active.height = 3040;
-    sensor.snsAlgInfo.fps = 30;
-    sensor.snsAlgInfo.sensor_exp_number = 1;
-    sensor.snsAlgInfo.bits = 10;
+    g_sensorPtr[ViPipe]->snsAlgInfo.active.width = 4048;
+    g_sensorPtr[ViPipe]->snsAlgInfo.active.height = 3040;
+    g_sensorPtr[ViPipe]->snsAlgInfo.fps = 30;
+    g_sensorPtr[ViPipe]->snsAlgInfo.sensor_exp_number = 1;
+    g_sensorPtr[ViPipe]->snsAlgInfo.bits = 10;
 
-    sensor.snsAlgInfo.sensor_gain_number = 1;
-    sensor.snsAlgInfo.total.width = 8984;
-    sensor.snsAlgInfo.total.height = 3116;
+    g_sensorPtr[ViPipe]->snsAlgInfo.sensor_gain_number = 1;
+    g_sensorPtr[ViPipe]->snsAlgInfo.total.width = 8984;
+    g_sensorPtr[ViPipe]->snsAlgInfo.total.height = 3116;
 
-    sensor.snsAlgInfo.lines_per_second = sensor.snsAlgInfo.total.height*30;
-    sensor.snsAlgInfo.pixels_per_line = sensor.snsAlgInfo.total.width;
+    g_sensorPtr[ViPipe]->snsAlgInfo.lines_per_second = g_sensorPtr[ViPipe]->snsAlgInfo.total.height*30;
+    g_sensorPtr[ViPipe]->snsAlgInfo.pixels_per_line = g_sensorPtr[ViPipe]->snsAlgInfo.total.width;
 
-    if (sensor.enWDRMode == 1) {
-        sensor.snsAlgInfo.integration_time_long_max = (sensor.snsAlgInfo.total.height*2 - 24) <<SHUTTER_TIME_SHIFT;
-        sensor.snsAlgInfo.integration_time_limit = 198<<SHUTTER_TIME_SHIFT;
+    if (g_sensorPtr[ViPipe]->enWDRMode == 1) {
+        g_sensorPtr[ViPipe]->snsAlgInfo.integration_time_long_max = (g_sensorPtr[ViPipe]->snsAlgInfo.total.height*2 - 24) <<SHUTTER_TIME_SHIFT;
+        g_sensorPtr[ViPipe]->snsAlgInfo.integration_time_limit = 198<<SHUTTER_TIME_SHIFT;
 
-        sensor.snsAlgInfo.integration_time_min = 1<<SHUTTER_TIME_SHIFT;
-        sensor.snsAlgInfo.integration_time_max = 198<<SHUTTER_TIME_SHIFT;
-        sensor.snsAlgInfo.integration_time_long_max = (sensor.snsAlgInfo.total.height*2 - 24) <<SHUTTER_TIME_SHIFT;
-        sensor.snsAlgInfo.integration_time_limit = 198<<SHUTTER_TIME_SHIFT;
+        g_sensorPtr[ViPipe]->snsAlgInfo.integration_time_min = 1<<SHUTTER_TIME_SHIFT;
+        g_sensorPtr[ViPipe]->snsAlgInfo.integration_time_max = 198<<SHUTTER_TIME_SHIFT;
+        g_sensorPtr[ViPipe]->snsAlgInfo.integration_time_long_max = (g_sensorPtr[ViPipe]->snsAlgInfo.total.height*2 - 24) <<SHUTTER_TIME_SHIFT;
+        g_sensorPtr[ViPipe]->snsAlgInfo.integration_time_limit = 198<<SHUTTER_TIME_SHIFT;
     } else {
-        sensor.snsAlgInfo.integration_time_min = 8<<SHUTTER_TIME_SHIFT;
-        sensor.snsAlgInfo.integration_time_max = sensor.snsAlgInfo.total.height<<SHUTTER_TIME_SHIFT;
-        sensor.snsAlgInfo.integration_time_long_max = sensor.snsAlgInfo.total.height<<SHUTTER_TIME_SHIFT;
-        sensor.snsAlgInfo.integration_time_limit = sensor.snsAlgInfo.total.height<<SHUTTER_TIME_SHIFT;
+        g_sensorPtr[ViPipe]->snsAlgInfo.integration_time_min = 8<<SHUTTER_TIME_SHIFT;
+        g_sensorPtr[ViPipe]->snsAlgInfo.integration_time_max = g_sensorPtr[ViPipe]->snsAlgInfo.total.height<<SHUTTER_TIME_SHIFT;
+        g_sensorPtr[ViPipe]->snsAlgInfo.integration_time_long_max = g_sensorPtr[ViPipe]->snsAlgInfo.total.height<<SHUTTER_TIME_SHIFT;
+        g_sensorPtr[ViPipe]->snsAlgInfo.integration_time_limit = g_sensorPtr[ViPipe]->snsAlgInfo.total.height<<SHUTTER_TIME_SHIFT;
     }
 
-    sensor.snsAlgInfo.again_log2_max = 18432; // 2^4.5 = 22.63; 1024/(1024-978) = 22.26
-    sensor.snsAlgInfo.again_high_log2_max = 18432; // 2^4.5 = 22.63; 1024/(1024-978) = 22.26
-    sensor.snsAlgInfo.dgain_log2_max = 0;
-    sensor.snsAlgInfo.dgain_high_log2_max = 0;
-    sensor.snsAlgInfo.dgain_high_accuracy_fmt = 0;
-    sensor.snsAlgInfo.dgain_high_accuracy = 1;
-    sensor.snsAlgInfo.dgain_accuracy_fmt = 0;
-    sensor.snsAlgInfo.dgain_accuracy = 1;
-    sensor.snsAlgInfo.again_high_accuracy_fmt = 1;
-    sensor.snsAlgInfo.again_high_accuracy = (1<<(LOG2_GAIN_SHIFT))/20;
-    sensor.snsAlgInfo.again_accuracy_fmt = 1;
-    sensor.snsAlgInfo.again_log2 = 0x0<< LOG2_GAIN_SHIFT;
-    sensor.snsAlgInfo.again_high_log2 = 0x0<< LOG2_GAIN_SHIFT;
-    sensor.snsAlgInfo.expos_lines = (0xC16<<(LOG2_GAIN_SHIFT));
-    sensor.snsAlgInfo.again_accuracy = (1<<(LOG2_GAIN_SHIFT))/512;
-    sensor.snsAlgInfo.expos_accuracy = (1<<(SHUTTER_TIME_SHIFT));
-    sensor.snsAlgInfo.sexpos_accuracy = (1<<(SHUTTER_TIME_SHIFT));
-    sensor.snsAlgInfo.vsexpos_accuracy = (1<<(SHUTTER_TIME_SHIFT));
-    sensor.snsAlgInfo.vvsexpos_accuracy = (1<<(SHUTTER_TIME_SHIFT));
+    g_sensorPtr[ViPipe]->snsAlgInfo.again_log2_max = 18432; // 2^4.5 = 22.63; 1024/(1024-978) = 22.26
+    g_sensorPtr[ViPipe]->snsAlgInfo.again_high_log2_max = 18432; // 2^4.5 = 22.63; 1024/(1024-978) = 22.26
+    g_sensorPtr[ViPipe]->snsAlgInfo.dgain_log2_max = 0;
+    g_sensorPtr[ViPipe]->snsAlgInfo.dgain_high_log2_max = 0;
+    g_sensorPtr[ViPipe]->snsAlgInfo.dgain_high_accuracy_fmt = 0;
+    g_sensorPtr[ViPipe]->snsAlgInfo.dgain_high_accuracy = 1;
+    g_sensorPtr[ViPipe]->snsAlgInfo.dgain_accuracy_fmt = 0;
+    g_sensorPtr[ViPipe]->snsAlgInfo.dgain_accuracy = 1;
+    g_sensorPtr[ViPipe]->snsAlgInfo.again_high_accuracy_fmt = 1;
+    g_sensorPtr[ViPipe]->snsAlgInfo.again_high_accuracy = (1<<(LOG2_GAIN_SHIFT))/20;
+    g_sensorPtr[ViPipe]->snsAlgInfo.again_accuracy_fmt = 1;
+    g_sensorPtr[ViPipe]->snsAlgInfo.again_accuracy = (1<<(LOG2_GAIN_SHIFT))/20;
+    g_sensorPtr[ViPipe]->snsAlgInfo.expos_accuracy = (1<<(SHUTTER_TIME_SHIFT));
+    g_sensorPtr[ViPipe]->snsAlgInfo.sexpos_accuracy = (1<<(SHUTTER_TIME_SHIFT));
+    g_sensorPtr[ViPipe]->snsAlgInfo.vsexpos_accuracy = (1<<(SHUTTER_TIME_SHIFT));
+    g_sensorPtr[ViPipe]->snsAlgInfo.vvsexpos_accuracy = (1<<(SHUTTER_TIME_SHIFT));
 
-    sensor.snsAlgInfo.gain_apply_delay = 0;
-    sensor.snsAlgInfo.integration_time_apply_delay = 0;
+    g_sensorPtr[ViPipe]->snsAlgInfo.gain_apply_delay = 0;
+    g_sensorPtr[ViPipe]->snsAlgInfo.integration_time_apply_delay = 0;
     ALOGD("cmos_get_ae_default++++++\n");
 
-    memcpy(pstAeSnsDft, &sensor.snsAlgInfo, sizeof(ALG_SENSOR_DEFAULT_S));
+    memcpy(pstAeSnsDft, &g_sensorPtr[ViPipe]->snsAlgInfo, sizeof(ALG_SENSOR_DEFAULT_S));
 
     return 0;
 }
@@ -148,10 +185,10 @@ static uint32_t aisp_math_exp2( int64_t val, int32_t shift_in, int32_t shift_out
     }
 }
 
-void cmos_again_calc_table_imx577(int ViPipe, uint32_t  *ae_sns_hc_again, uint32_t *ae_sns_again)
+void cmos_again_calc_table_imx577(int ViPipe, uint32_t *ae_sns_hc_again, uint32_t *ae_sns_again)
 {
-    CAMHAL_LOGD("cmos_again_calc_table: %u, %u\n",  *ae_sns_hc_again, *ae_sns_again);
-    int again_reg;
+    ALOGD("cmos_again_calc_table: %d, %d\n", *ae_sns_hc_again, *ae_sns_again);
+    uint32_t again_reg;
     const int32_t  shift_out  = 8;
     float    again_float = 0.0f;
 
@@ -167,9 +204,9 @@ void cmos_again_calc_table_imx577(int ViPipe, uint32_t  *ae_sns_hc_again, uint32
     if (again_reg < 0)
         again_reg = 0;
 
-    if (sensor.snsAlgInfo.u32AGain[0] != again_reg) {
-        sensor.snsAlgInfo.u16GainCnt = sensor.snsAlgInfo.gain_apply_delay + 1;
-        sensor.snsAlgInfo.u32AGain[0] = again_reg;
+    if (g_sensorPtr[ViPipe]->snsAlgInfo.u32AGain[0] != again_reg) {
+        g_sensorPtr[ViPipe]->snsAlgInfo.u16GainCnt = g_sensorPtr[ViPipe]->snsAlgInfo.gain_apply_delay + 1;
+        g_sensorPtr[ViPipe]->snsAlgInfo.u32AGain[0] = again_reg;
     }
 
 }
@@ -183,12 +220,12 @@ void cmos_inttime_calc_table_imx577(int ViPipe, uint32_t pu32ExpL, uint32_t pu32
 {
     ALOGD("cmos_inttime_calc_table: %d, %d, %d, %d\n", pu32ExpL, pu32ExpS, pu32ExpVS, pu32ExpVVS);
     uint32_t shutter_time_lines = pu32ExpL >> SHUTTER_TIME_SHIFT;
-    uint32_t shutter_time_line_each_frame = sensor.snsAlgInfo.total.height;
+    uint32_t shutter_time_line_each_frame = g_sensorPtr[ViPipe]->snsAlgInfo.total.height;
 
     uint32_t shutter_time_lines_short = pu32ExpS >> SHUTTER_TIME_SHIFT;
 
     //ALOGD("expo: %d, %d\n", shutter_time_lines, shutter_time_lines_short);
-    if (sensor.enWDRMode == 0) {
+    if (g_sensorPtr[ViPipe]->enWDRMode == 0) {
         if (shutter_time_lines > shutter_time_line_each_frame)
             shutter_time_lines = shutter_time_line_each_frame;
 
@@ -203,10 +240,10 @@ void cmos_inttime_calc_table_imx577(int ViPipe, uint32_t pu32ExpL, uint32_t pu32
         shutter_time_lines = shutter_time_line_each_frame * 2  - shutter_time_lines - 1 - 26;
     }
 
-    if (sensor.snsAlgInfo.u32Inttime[0][0] != shutter_time_lines || sensor.snsAlgInfo.u32Inttime[1][0] != shutter_time_lines_short) {
-        sensor.snsAlgInfo.u16IntTimeCnt = sensor.snsAlgInfo.integration_time_apply_delay + 1;
-        sensor.snsAlgInfo.u32Inttime[0][0] = shutter_time_lines;
-        sensor.snsAlgInfo.u32Inttime[1][0] = shutter_time_lines_short;
+    if (g_sensorPtr[ViPipe]->snsAlgInfo.u32Inttime[0][0] != shutter_time_lines || g_sensorPtr[ViPipe]->snsAlgInfo.u32Inttime[1][0] != shutter_time_lines_short) {
+        g_sensorPtr[ViPipe]->snsAlgInfo.u16IntTimeCnt = g_sensorPtr[ViPipe]->snsAlgInfo.integration_time_apply_delay + 1;
+        g_sensorPtr[ViPipe]->snsAlgInfo.u32Inttime[0][0] = shutter_time_lines;
+        g_sensorPtr[ViPipe]->snsAlgInfo.u32Inttime[1][0] = shutter_time_lines_short;
     }
 }
 
@@ -220,28 +257,28 @@ void cmos_alg_update_imx577(int ViPipe)
     uint32_t shutter_time_lines = 0;//, shutter_time_lines_short = 0;
     uint32_t i = 0;
 
-    if ( sensor.snsAlgInfo.u16GainCnt || sensor.snsAlgInfo.u16IntTimeCnt ) {
-        if ( sensor.snsAlgInfo.u16GainCnt ) {
-            sensor.snsAlgInfo.u16GainCnt--;
+    if ( g_sensorPtr[ViPipe]->snsAlgInfo.u16GainCnt || g_sensorPtr[ViPipe]->snsAlgInfo.u16IntTimeCnt ) {
+        if ( g_sensorPtr[ViPipe]->snsAlgInfo.u16GainCnt ) {
+            g_sensorPtr[ViPipe]->snsAlgInfo.u16GainCnt--;
             struct v4l2_ext_control gain;
             gain.id = V4L2_CID_GAIN;
-            gain.value = sensor.snsAlgInfo.u32AGain[sensor.snsAlgInfo.gain_apply_delay];
-            v4l2_subdev_set_ctrls(sensor.sensor_ent, &gain, 1);
+            gain.value = g_sensorPtr[ViPipe]->snsAlgInfo.u32AGain[g_sensorPtr[ViPipe]->snsAlgInfo.gain_apply_delay];
+            v4l2_subdev_set_ctrls(g_sensorPtr[ViPipe]->sensor_ent, &gain, 1);
         }
 
         // -------- Integration Time ----------
-        if ( sensor.snsAlgInfo.u16IntTimeCnt ) {
-            sensor.snsAlgInfo.u16IntTimeCnt--;
-            shutter_time_lines = sensor.snsAlgInfo.u32Inttime[0][sensor.snsAlgInfo.integration_time_apply_delay];
-            if (sensor.enWDRMode == 0) {
+        if ( g_sensorPtr[ViPipe]->snsAlgInfo.u16IntTimeCnt ) {
+            g_sensorPtr[ViPipe]->snsAlgInfo.u16IntTimeCnt--;
+            shutter_time_lines = g_sensorPtr[ViPipe]->snsAlgInfo.u32Inttime[0][g_sensorPtr[ViPipe]->snsAlgInfo.integration_time_apply_delay];
+            if (g_sensorPtr[ViPipe]->enWDRMode == 0) {
                 struct v4l2_ext_control expo;
                 expo.id = V4L2_CID_EXPOSURE;
                 expo.value = shutter_time_lines;
-                v4l2_subdev_set_ctrls(sensor.sensor_ent, &expo, 1);
+                v4l2_subdev_set_ctrls(g_sensorPtr[ViPipe]->sensor_ent, &expo, 1);
             }
 
-            if (sensor.enWDRMode) {
-                //shutter_time_lines_short = sensor.snsAlgInfo.u32Inttime[1][sensor.snsAlgInfo.integration_time_apply_delay];
+            if (g_sensorPtr[ViPipe]->enWDRMode) {
+                //shutter_time_lines_short = g_sensorPtr[ViPipe]->snsAlgInfo.u32Inttime[1][g_sensorPtr[ViPipe]->snsAlgInfo.integration_time_apply_delay];
                 //imx577_write_register(ViPipe, 0x3020, shutter_time_lines_short & 0xff);
                 //imx577_write_register(ViPipe, 0x3021, (shutter_time_lines_short>>8) & 0xff);
                 //imx577_write_register(ViPipe, 0x3024, shutter_time_lines&0xff);
@@ -252,9 +289,9 @@ void cmos_alg_update_imx577(int ViPipe)
     }
 
     for ( i = 3; i > 0; i --) {
-        sensor.snsAlgInfo.u32AGain[i] = sensor.snsAlgInfo.u32AGain[i - 1];
-        sensor.snsAlgInfo.u32Inttime[0][i] = sensor.snsAlgInfo.u32Inttime[0][i - 1];
-        sensor.snsAlgInfo.u32Inttime[1][i] = sensor.snsAlgInfo.u32Inttime[1][i - 1];
+        g_sensorPtr[ViPipe]->snsAlgInfo.u32AGain[i] = g_sensorPtr[ViPipe]->snsAlgInfo.u32AGain[i - 1];
+        g_sensorPtr[ViPipe]->snsAlgInfo.u32Inttime[0][i] = g_sensorPtr[ViPipe]->snsAlgInfo.u32Inttime[0][i - 1];
+        g_sensorPtr[ViPipe]->snsAlgInfo.u32Inttime[1][i] = g_sensorPtr[ViPipe]->snsAlgInfo.u32Inttime[1][i - 1];
     }
 }
 

@@ -60,7 +60,8 @@ struct sensorConfig imx290Cfg = {
     .expFunc.pfn_cmos_inttime_calc_table = cmos_inttime_calc_table_imx290,
     .cmos_set_sensor_entity = cmos_set_sensor_entity_imx290,
     .cmos_get_sensor_calibration = cmos_get_sensor_calibration_imx290,
-    .cmos_get_sensor_otp_data = cmos_get_sensor_otp_data_imx290,
+    .cmos_clean_up = cmos_clean_up_imx290,
+
 #if defined(PREVIEW_DEWARP_ENABLE) || defined(PICTURE_DEWARP_ENABLE)
     .cmos_get_sensor_gdc_parameter = cmos_get_sensor_gdc_parameter_imx290,
 #endif
@@ -84,6 +85,8 @@ struct sensorConfig imx415Cfg = {
     .expFunc.pfn_cmos_inttime_calc_table = cmos_inttime_calc_table_imx415,
     .cmos_set_sensor_entity = cmos_set_sensor_entity_imx415,
     .cmos_get_sensor_calibration = cmos_get_sensor_calibration_imx415,
+    .cmos_clean_up = cmos_clean_up_imx415,
+
 #if defined(PREVIEW_DEWARP_ENABLE) || defined(PICTURE_DEWARP_ENABLE)
     .cmos_get_sensor_gdc_parameter = cmos_get_sensor_gdc_parameter_imx415,
 #endif
@@ -106,6 +109,8 @@ struct sensorConfig ov13b10Cfg = {
     .expFunc.pfn_cmos_inttime_calc_table = cmos_inttime_calc_table_ov13b10,
     .cmos_set_sensor_entity = cmos_set_sensor_entity_ov13b10,
     .cmos_get_sensor_calibration = cmos_get_sensor_calibration_ov13b10,
+    .cmos_clean_up = cmos_clean_up_ov13b10,
+
 #if defined(PREVIEW_DEWARP_ENABLE) || defined(PICTURE_DEWARP_ENABLE)
     .cmos_get_sensor_gdc_parameter = cmos_get_sensor_gdc_parameter_ov13b10,
 #endif
@@ -131,6 +136,8 @@ struct sensorConfig ov16a1qCfg = {
     .expFunc.pfn_cmos_inttime_calc_table = cmos_inttime_calc_table_ov16a1q,
     .cmos_set_sensor_entity = cmos_set_sensor_entity_ov16a1q,
     .cmos_get_sensor_calibration = cmos_get_sensor_calibration_ov16a1q,
+    .cmos_clean_up = cmos_clean_up_ov16a1q,
+
 #if defined(PREVIEW_DEWARP_ENABLE) || defined(PICTURE_DEWARP_ENABLE)
     .cmos_get_sensor_gdc_parameter = cmos_get_sensor_gdc_parameter_ov16a1q,
 #endif
@@ -153,6 +160,8 @@ struct sensorConfig ov08a10Cfg = {
     .expFunc.pfn_cmos_inttime_calc_table = cmos_inttime_calc_table_ov08a10,
     .cmos_set_sensor_entity = cmos_set_sensor_entity_ov08a10,
     .cmos_get_sensor_calibration = cmos_get_sensor_calibration_ov08a10,
+    .cmos_clean_up = cmos_clean_up_ov08a10,
+
 #if defined(PREVIEW_DEWARP_ENABLE) || defined(PICTURE_DEWARP_ENABLE)
     .cmos_get_sensor_gdc_parameter = cmos_get_sensor_gdc_parameter_ov08a10,
 #endif
@@ -174,6 +183,8 @@ struct sensorConfig ov13855Cfg = {
     .expFunc.pfn_cmos_inttime_calc_table = cmos_inttime_calc_table_ov13855,
     .cmos_set_sensor_entity = cmos_set_sensor_entity_ov13855,
     .cmos_get_sensor_calibration = cmos_get_sensor_calibration_ov13855,
+    .cmos_clean_up = cmos_clean_up_ov13855,
+
 #if defined(PREVIEW_DEWARP_ENABLE) || defined(PICTURE_DEWARP_ENABLE)
     .cmos_get_sensor_gdc_parameter = cmos_get_sensor_gdc_parameter_ov13855,
 #endif
@@ -215,7 +226,8 @@ struct sensorConfig imx378Cfg = {
     .expFunc.pfn_cmos_inttime_calc_table = cmos_inttime_calc_table_imx378,
     .cmos_set_sensor_entity = cmos_set_sensor_entity_imx378,
     .cmos_get_sensor_calibration = cmos_get_sensor_calibration_imx378,
-    .cmos_get_sensor_otp_data = cmos_get_sensor_otp_data_imx378,
+    .cmos_clean_up = cmos_clean_up_imx378,
+
 #if defined(PREVIEW_DEWARP_ENABLE) || defined(PICTURE_DEWARP_ENABLE)
     .cmos_get_sensor_gdc_parameter = cmos_get_sensor_gdc_parameter_imx378,
 #endif
@@ -238,7 +250,8 @@ struct sensorConfig imx335Cfg = {
     .expFunc.pfn_cmos_inttime_calc_table = cmos_inttime_calc_table_imx335,
     .cmos_set_sensor_entity = cmos_set_sensor_entity_imx335,
     .cmos_get_sensor_calibration = cmos_get_sensor_calibration_imx335,
-    .cmos_get_sensor_otp_data = cmos_get_sensor_otp_data_imx335,
+    .cmos_clean_up = cmos_clean_up_imx335,
+
 #if defined(PREVIEW_DEWARP_ENABLE) || defined(PICTURE_DEWARP_ENABLE)
     .cmos_get_sensor_gdc_parameter = cmos_get_sensor_gdc_parameter_imx335,
 #endif
@@ -260,6 +273,8 @@ struct sensorConfig imx577Cfg = {
     .expFunc.pfn_cmos_inttime_calc_table = cmos_inttime_calc_table_imx577,
     .cmos_set_sensor_entity = cmos_set_sensor_entity_imx577,
     .cmos_get_sensor_calibration = cmos_get_sensor_calibration_imx577,
+    .cmos_clean_up = cmos_clean_up_imx577,
+
 #if defined(PREVIEW_DEWARP_ENABLE) || defined(PICTURE_DEWARP_ENABLE)
     .cmos_get_sensor_gdc_parameter = cmos_get_sensor_gdc_parameter_imx577,
 #endif
@@ -371,16 +386,23 @@ void cmos_sensor_control_cb(struct sensorConfig *cfg, ALG_SENSOR_EXP_FUNC_S *stS
     stSnsExp->pfn_cmos_fps_set = cfg->expFunc.pfn_cmos_fps_set;
 }
 
-void cmos_set_sensor_entity(struct sensorConfig *cfg, struct media_entity *sensor_ent, int wdr, int fps)
+void cmos_set_sensor_entity(int cam_id, struct sensorConfig *cfg, struct media_entity *sensor_ent, int wdr, int fps)
 {
     if (cfg->cmos_set_sensor_entity)
-        (cfg->cmos_set_sensor_entity)(sensor_ent, wdr, fps);
+        (cfg->cmos_set_sensor_entity)(cam_id, sensor_ent, wdr, fps);
 }
 
-void cmos_get_sensor_calibration(struct sensorConfig *cfg, struct media_entity * sensor_ent, aisp_calib_info_t *calib)
+void cmos_get_sensor_calibration(int cam_id, struct sensorConfig *cfg, struct media_entity * sensor_ent, aisp_calib_info_t *calib)
 {
     if (cfg->cmos_get_sensor_calibration)
-        (cfg->cmos_get_sensor_calibration)(sensor_ent, calib);
+        (cfg->cmos_get_sensor_calibration)(cam_id, sensor_ent, calib);
+}
+
+void cmos_clean_up(int cam_id, struct sensorConfig * cfg)
+{
+    if (cfg)
+        if (cfg->cmos_clean_up)
+            cfg->cmos_clean_up(cam_id);
 }
 
 void cmos_get_sensor_otp_data(struct sensorConfig *cfg, aisp_calib_info_t *otp)

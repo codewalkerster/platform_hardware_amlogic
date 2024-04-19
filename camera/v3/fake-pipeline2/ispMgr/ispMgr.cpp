@@ -80,6 +80,7 @@ IspMgr::~IspMgr() {
     close(mFlushFd[1]);
     mFlushFd[0] = -1;
     mFlushFd[1] = -1;
+    cmos_clean_up(mId, mSensorConfig);
     CAMHAL_LOGD("%s", __FUNCTION__);
 }
 
@@ -149,9 +150,9 @@ status_t IspMgr::configure(struct media_stream *stream, int wdr, aisp_calib_info
         CAMHAL_LOGE("Failed to matchSensorConfig");
         return -1;
     }
-    cmos_set_sensor_entity(mSensorConfig, mMediaStream->sensor_ent, wdr, fps);
+    cmos_set_sensor_entity(mId, mSensorConfig, mMediaStream->sensor_ent, wdr, fps);
     cmos_sensor_control_cb(mSensorConfig, &mPstAlgCtx.stSnsExp);
-    cmos_get_sensor_calibration(mSensorConfig, mMediaStream->sensor_ent, &mCalibInfo);
+    cmos_get_sensor_calibration(mId, mSensorConfig, mMediaStream->sensor_ent, &mCalibInfo);
     cmos_get_external_calibration(mSensorConfig->sensorName, wdr, &mCalibInfo);
     property_get("vendor.camhal.otp.disable", property, "false");
     if (otp && strstr(property, "false")) {

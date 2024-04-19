@@ -46,9 +46,10 @@ void cmos_dgain_calc_table_imx378(int ViPipe, uint32_t *pu32DgainLin, uint32_t *
 void cmos_inttime_calc_table_imx378(int ViPipe, uint32_t pu32ExpL, uint32_t pu32ExpS, uint32_t pu32ExpVS, uint32_t pu32ExpVVS);
 void cmos_fps_set_imx378(int ViPipe, float f32Fps, ALG_SENSOR_DEFAULT_S *pstAeSnsDft);
 void cmos_alg_update_imx378(int ViPipe);
-void cmos_set_sensor_entity_imx378(struct media_entity * sensor_ent, int wdr, int fps);
-void cmos_get_sensor_calibration_imx378(struct media_entity *sensor_ent, aisp_calib_info_t *calib);
-void cmos_get_sensor_otp_data_imx378(aisp_calib_info_t *otp);
+
+void cmos_set_sensor_entity_imx378(int ViPipe, struct media_entity * sensor_ent, int wdr, int fps);
+void cmos_get_sensor_calibration_imx378(int ViPipe, struct media_entity *sensor_ent, aisp_calib_info_t *calib);
+void cmos_clean_up_imx378(int ViPipe);
 
 #if defined(PREVIEW_DEWARP_ENABLE) || defined(PICTURE_DEWARP_ENABLE)
 void cmos_get_sensor_gdc_parameter_imx378(struct sensorConfig *cfg, GDCInParam in_params, struct dewarp_params *dewarp_params);
