@@ -360,6 +360,12 @@ void Dumpstate::dumpstateBoardOfDisplay(int fd, int64_t maxtime) {
     DumpFileToFd(fd, "hdmirx_info", "/sys/class/amhdmitx/amhdmitx0/hdmirx_info");
     DumpFileToFd(fd, "clkmsr", "/sys/class/amhdmitx/amhdmitx0/clkmsr");
 
+    //hdmitx21
+    DumpFileToFd(fd, "hdmitx21_reg", "/proc/amhdmitx/hdmi_reg");
+    DumpFileToFd(fd, "hdmitx21_bus_reg", "/proc/amhdmitx/bus_reg");
+    DumpFileToFd(fd, "hdmitx21_vpfdet", "/proc/amhdmitx/hdmi_vpfdet");
+    DumpFileToFd(fd, "hdmitx21_frl_status", "/proc/amhdmitx/frl_status");
+
     //videotunnel
     DumpFileToFd(fd, "vt_instance", "/sys/class/videotunnel/instance");
     DumpFileToFd(fd, "vt_state", "/sys/class/videotunnel/state");
