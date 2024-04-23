@@ -1190,9 +1190,9 @@ void USBSensorHWDec::getStreamInfo(std::vector<streamInfo> &streamInfos) {
             support_h = 10000;
         }
     } else {
-#if defined(CAMERA_MAX_PREVIEW_WIDTH) && defined(CAMERA_MAX_PREVIEW_HEIGHT)
-        support_w = atoi(CAMERA_MAX_PREVIEW_WIDTH);
-        support_h = atoi(CAMERA_MAX_PREVIEW_HEIGHT);
+#if defined(CAMERA_HW_MAX_PREVIEW_WIDTH) && defined(CAMERA_HW_MAX_PREVIEW_HEIGHT)
+        support_w = atoi(CAMERA_HW_MAX_PREVIEW_WIDTH);
+        support_h = atoi(CAMERA_HW_MAX_PREVIEW_HEIGHT);
 #endif
         CAMHAL_LOGV("the configured max preview size :%dx%d", support_w, support_h);
     }
@@ -1281,9 +1281,9 @@ int USBSensorHWDec::getStreamConfigurations(uint32_t picSizes[], const int32_t k
             support_h = 10000;
         }
     } else {
-#if defined(CAMERA_MAX_PREVIEW_WIDTH) && defined(CAMERA_MAX_PREVIEW_HEIGHT)
-        support_w = atoi(CAMERA_MAX_PREVIEW_WIDTH);
-        support_h = atoi(CAMERA_MAX_PREVIEW_HEIGHT);
+#if defined(CAMERA_HW_MAX_PREVIEW_WIDTH) && defined(CAMERA_HW_MAX_PREVIEW_HEIGHT)
+        support_w = atoi(CAMERA_HW_MAX_PREVIEW_WIDTH);
+        support_h = atoi(CAMERA_HW_MAX_PREVIEW_HEIGHT);
 #endif
         CAMHAL_LOGD("the configured max preview size :%dx%d", support_w, support_h);
     }

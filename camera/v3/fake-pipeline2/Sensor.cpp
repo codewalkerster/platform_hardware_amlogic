@@ -1462,6 +1462,12 @@ int Sensor::getStreamConfigurations(uint32_t picSizes[], const int32_t kAvailabl
             support_w = 10000;
             support_h = 10000;
         }
+    } else {
+#if defined(CAMERA_SW_MAX_PREVIEW_WIDTH) && defined(CAMERA_SW_MAX_PREVIEW_HEIGHT)
+        support_w = atoi(CAMERA_SW_MAX_PREVIEW_WIDTH);
+        support_h = atoi(CAMERA_SW_MAX_PREVIEW_HEIGHT);
+#endif
+        CAMHAL_LOGD("the configured max preview size :%dx%d", support_w, support_h);
     }
 
     memset(&frmsize,0,sizeof(frmsize));
