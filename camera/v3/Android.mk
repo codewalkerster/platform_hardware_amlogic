@@ -78,8 +78,7 @@ LOCAL_SHARED_LIBRARIES:= \
     libexpat \
     libexif \
     libcamera_metadata \
-    libamgralloc_ext \
-    libmediandk
+    libamgralloc_ext
 
 ifeq ($(TARGET_BUILD_KERNEL_4_9), true)
 BUILD_KERNEL_4_9 ?= true
