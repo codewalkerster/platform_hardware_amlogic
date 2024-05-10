@@ -170,7 +170,6 @@ private:
             int  mDecodeFillThreadState;
             pthread_t mDecodeFillThreadId;
             std::vector<streamInfo> mStreamInfos;
-            bool isUseH264;
 
             int startDecodeFillThread();
             int stopDecodeFillThread();

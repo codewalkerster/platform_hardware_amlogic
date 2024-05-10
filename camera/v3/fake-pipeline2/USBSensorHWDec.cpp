@@ -67,16 +67,22 @@ static bool IsAvailablePictureSize(const usb_frmsize_discrete_t AvailablePicture
     return false;
 }
 
-static bool determineUseH264(const uint32_t width, const uint32_t height)
+static bool determineUseH264(const std::vector<streamInfo> streamInfos,
+    const uint32_t width, const uint32_t height)
 {
-    uint32_t base_w = property_get_int32("vendor.media.camera.h264.width", 3840);
-    uint32_t base_h = property_get_int32("vendor.media.camera.h264.height", 2160);
+    uint32_t base_w = property_get_int32("vendor.media.camera.h264.width", 10000);
+    uint32_t base_h = property_get_int32("vendor.media.camera.h264.height", 10000);
     CAMHAL_LOGV("base width %d, base height %d", base_w, base_h);
     if (property_get_bool("vendor.media.camera.force.h264", false)) {
         CAMHAL_LOGD("default choose h264");
         return true;
     } else if ((width >= base_w) && (height >= base_h)) {
-        return true;
+        auto it = std::find_if(streamInfos.begin(), streamInfos.end(),
+            [&width, &height](const streamInfo info){
+                return (info.mWidth == width && info.mHeight == height &&
+                    info.mPixelformat == V4L2_PIX_FMT_H264);});
+        if (it != streamInfos.end())
+            return true;
     }
     return false;
 }
@@ -119,7 +125,6 @@ USBSensorHWDec::USBSensorHWDec(int expectedV4l2OutPixFmt)
     memset(&mDecoderOutBuf, 0, sizeof(mDecoderOutBuf));
     mNeedStopDecodeFillThread = false;
     mDecodeOutBufIsFresh = false;
-    isUseH264 = false;
     CAMHAL_LOGD("create usbsensorHWDec");
 }
 
@@ -332,18 +337,66 @@ status_t USBSensorHWDec::setOutputFormat(int width, int height,
     int res, ret;
     mFramecount = 0;
     mCurFps = 0;
+    bool isUseH264 = false;
 
     do {
-        if (isUseH264) {
-            ret = getOutputFormat(width, height, V4L2_PIX_FMT_H264);
-            if (ret) {
-                pixelformat = ret;
+        if (mExpectedV4l2OutPixFmt != V4L2_PIX_FMT_H264) {
+            isUseH264 = determineUseH264(mStreamInfos, width, height);
+            if (isUseH264) {
+                pixelformat = V4L2_PIX_FMT_H264;
                 mDecoderStreamType = H264_STREAM;
                 mHWDecoderWorkMode = ASYNC_DECODE_MODE;
-                CAMHAL_LOGW("%s support 4k, set H264 %dx%d, stream type %d, decoder work mode %d",
-                    __FUNCTION__, width, height, mDecoderStreamType, mHWDecoderWorkMode);
+                CAMHAL_LOGW("force set H264 %dx%d, stream type %d, decoder work mode %d",
+                    width, height, mDecoderStreamType, mHWDecoderWorkMode);
                 break;
             }
+        }
+        ret = getOutputFormat(width, height, mExpectedV4l2OutPixFmt);
+        if (ret) {
+            pixelformat = ret;
+            switch (pixelformat) {
+                case V4L2_PIX_FMT_MJPEG:
+                    mDecoderStreamType = MJPEG_STREAM;
+                    mHWDecoderWorkMode = ASYNC_DECODE_MODE;
+                    if (property_get_bool("vendor.media.camera.usb.syncdec", false)) {
+                        mHWDecoderWorkMode = SYNC_DECODE_MODE;
+                    }
+                    CAMHAL_LOGW("set mjpeg %dx%d, stream type %d, decoder work mode %d",
+                        width, height, mDecoderStreamType, mHWDecoderWorkMode);
+                    break;
+                case V4L2_PIX_FMT_H264:
+                    mDecoderStreamType = H264_STREAM;
+                    mHWDecoderWorkMode = ASYNC_DECODE_MODE;
+                    CAMHAL_LOGW("set H264 %dx%d, stream type %d, decoder work mode %d",
+                        width, height, mDecoderStreamType, mHWDecoderWorkMode);
+                    break;
+                case V4L2_PIX_FMT_HEVC:
+                    mDecoderStreamType = HEVC_STREAM;
+                    mHWDecoderWorkMode = ASYNC_DECODE_MODE;
+                    CAMHAL_LOGW("set H265 %dx%d, stream type %d, decoder work mode %d",
+                        width, height, mDecoderStreamType, mHWDecoderWorkMode);
+                    break;
+                case V4L2_PIX_FMT_YUYV:
+                    mHWDecoderWorkMode = SYNC_DECODE_MODE;
+                    CAMHAL_LOGW("set yuyv %dx%d, decoder work mode %d",
+                        width, height, mHWDecoderWorkMode);
+                    break;
+                case V4L2_PIX_FMT_NV21:
+                    mHWDecoderWorkMode = SYNC_DECODE_MODE;
+                    CAMHAL_LOGW("set nv21 %dx%d, decoder work mode %d",
+                        width, height, mHWDecoderWorkMode);
+                    break;
+                default:
+                    mDecoderStreamType = MJPEG_STREAM;
+                    mHWDecoderWorkMode = ASYNC_DECODE_MODE;
+                    if (property_get_bool("vendor.media.camera.usb.syncdec", false)) {
+                        mHWDecoderWorkMode = SYNC_DECODE_MODE;
+                    }
+                    CAMHAL_LOGW("set mjpeg %dx%d, stream type %d, decoder work mode %d",
+                        width, height, mDecoderStreamType, mHWDecoderWorkMode);
+                    break;
+            }
+            break;
         }
         ret = getOutputFormat(width, height, V4L2_PIX_FMT_MJPEG);
         if (ret) {
@@ -353,8 +406,8 @@ status_t USBSensorHWDec::setOutputFormat(int width, int height,
             if (property_get_bool("vendor.media.camera.usb.syncdec", false)) {
                 mHWDecoderWorkMode = SYNC_DECODE_MODE;
             }
-            CAMHAL_LOGW("%s set mjpeg %dx%d, stream type %d, decoder work mode %d",
-                __FUNCTION__, width, height, mDecoderStreamType, mHWDecoderWorkMode);
+            CAMHAL_LOGW("default format not support, set mjpeg %dx%d, stream type %d, decoder work mode %d",
+                width, height, mDecoderStreamType, mHWDecoderWorkMode);
             break;
         }
         ret = getOutputFormat(width, height, V4L2_PIX_FMT_H264);
@@ -362,8 +415,8 @@ status_t USBSensorHWDec::setOutputFormat(int width, int height,
             pixelformat = ret;
             mDecoderStreamType = H264_STREAM;
             mHWDecoderWorkMode = ASYNC_DECODE_MODE;
-            CAMHAL_LOGW("%s set H264 %dx%d, stream type %d, decoder work mode %d",
-                __FUNCTION__, width, height, mDecoderStreamType, mHWDecoderWorkMode);
+            CAMHAL_LOGW("default format not support, set H264 %dx%d, stream type %d, decoder work mode %d",
+                width, height, mDecoderStreamType, mHWDecoderWorkMode);
             break;
         }
         ret = getOutputFormat(width, height, V4L2_PIX_FMT_HEVC);
@@ -371,28 +424,29 @@ status_t USBSensorHWDec::setOutputFormat(int width, int height,
             pixelformat = ret;
             mDecoderStreamType = HEVC_STREAM;
             mHWDecoderWorkMode = ASYNC_DECODE_MODE;
-            CAMHAL_LOGW("%s set H265 %dx%d, stream type %d, decoder work mode %d",
-                __FUNCTION__, width, height, mDecoderStreamType, mHWDecoderWorkMode);
+            CAMHAL_LOGW("default format not support, set H265 %dx%d, stream type %d, decoder work mode %d",
+                width, height, mDecoderStreamType, mHWDecoderWorkMode);
             break;
         }
         ret = getOutputFormat(width, height, V4L2_PIX_FMT_YUYV);
         if (ret) {
             pixelformat = ret;
             mHWDecoderWorkMode = SYNC_DECODE_MODE;
-            CAMHAL_LOGW("%s set yuyv %dx%d, decoder work mode %d",
-                __FUNCTION__, width, height, mHWDecoderWorkMode);
+            CAMHAL_LOGW("default format not support, set yuyv %dx%d, decoder work mode %d",
+                width, height, mHWDecoderWorkMode);
             break;
         }
         ret = getOutputFormat(width, height, V4L2_PIX_FMT_NV21);
         if (ret) {
             pixelformat = ret;
             mHWDecoderWorkMode = SYNC_DECODE_MODE;
-            CAMHAL_LOGW("%s set nv21 %dx%d, decoder work mode %d",
-                __FUNCTION__, width, height, mHWDecoderWorkMode);
+            CAMHAL_LOGW("default format not support, set nv21 %dx%d, decoder work mode %d",
+                width, height, mHWDecoderWorkMode);
             break;
         }
     } while (0);
 
+    mExpectedV4l2OutPixFmt = pixelformat;
     gettimeofday(&mTimeStart, NULL);
     if (pixelformat != V4L2_PIX_FMT_YUYV && pixelformat != V4L2_PIX_FMT_NV21)
         initDecoder(width, height, width, height, 4);
@@ -558,44 +612,7 @@ void USBSensorHWDec::setIOBufferNum()
 
 status_t USBSensorHWDec::getOutputFormat(void)
 {
-    uint32_t ret = 0;
-    if (mExpectedV4l2OutPixFmt != 0x0) {
-        ret = mVinfo->EnumerateFormat(mExpectedV4l2OutPixFmt);
-        if (ret) {
-            return ret;
-        }
-    }
-    ret = mVinfo->EnumerateFormat(V4L2_PIX_FMT_HEVC);
-    if (ret) {
-        return ret;
-    }
-
-    CAMHAL_LOGW("h265 stream is not supported by hw . fallback to h264 stream");
-    ret = mVinfo->EnumerateFormat(V4L2_PIX_FMT_H264);
-    if (ret) {
-        return ret;
-    }
-
-    CAMHAL_LOGW("h264 stream is not supported by hw . fallback to mjpeg stream");
-    ret = mVinfo->EnumerateFormat(V4L2_PIX_FMT_MJPEG);
-    if (ret) {
-        return ret;
-    }
-
-    CAMHAL_LOGW("h264 & mjpeg stream not supported by hw, try nv21");
-    ret = mVinfo->EnumerateFormat(V4L2_PIX_FMT_NV21);
-    if (ret) {
-        return ret;
-    }
-
-    CAMHAL_LOGW("h264 & mjpeg & nv21 stream not supported by hw, try yuyv");
-    ret = mVinfo->EnumerateFormat(V4L2_PIX_FMT_YUYV);
-    if (ret) {
-        return ret;
-    }
-
-    CAMHAL_LOGE("Unable to find a supported v4l2 pix format!");
-    return 0;
+    return mExpectedV4l2OutPixFmt;
 }
 
 // return
@@ -1209,9 +1226,6 @@ void USBSensorHWDec::getStreamInfo(std::vector<streamInfo> &streamInfos) {
                     continue;
 
                 streamInfos.emplace_back(srcfmt[j], frmsize.discrete.width, frmsize.discrete.height);
-                if ((srcfmt[j] == V4L2_PIX_FMT_H264) && determineUseH264(frmsize.discrete.width, frmsize.discrete.height)) {
-                    isUseH264 = true;
-                 }
             }
         }
     }
