@@ -1767,6 +1767,13 @@ void *USBSensorHWDec::decodeFillThreadProc(void *data){
             break;
         }
 
+        const HWVideoDecoder::DecoderStatus &decoderStatus =  decoder->getDecoderStatus();
+        if (decoderStatus < HWVideoDecoder::INITED || decoderStatus == HWVideoDecoder::RUNTIME_ERROR) {
+            CAMHAL_LOGD("decoder not in working mode");
+            vinfo->putback_frame();
+            continue;
+        }
+
         if (sensor->mDecoderStreamType == H264_STREAM || sensor->mDecoderStreamType == HEVC_STREAM) {
             // start with IDR frame. [normally after v4l2 setting. first frame is IDR.]
             // this code segment take effect in case abnormal things occurs.
