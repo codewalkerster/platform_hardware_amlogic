@@ -664,9 +664,7 @@ read_queue:
     tv.tv_sec = 0;
     tv.tv_usec = 0;
     r = select(mVinfo->fd + 1, &fds, NULL, NULL, &tv);
-    if (r > 0 &&
-            (mVinfo->preview.format.fmt.pix.width * mVinfo->preview.format.fmt.pix.height
-                < 3840 * 2160)) {
+    if (r > 0) {
         // yes, there are more filled buffers. queue this one, dq next;
         if ( 0 > mVinfo->putback_frame() ) {
             CAMHAL_LOGE("%s: VIDIOC_QBUF/flush failed, errno=%d\n", __func__, errno);
