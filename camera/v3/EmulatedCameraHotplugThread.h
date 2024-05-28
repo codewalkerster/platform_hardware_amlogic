@@ -46,33 +46,10 @@ class EmulatedCameraHotplugThread : public Thread {
     virtual status_t readyToRun();
     virtual bool threadLoop();
 
-    struct SubscriberInfo {
-        int CameraID;
-        int WatchID;
-    };
-
-    bool addWatch(int cameraId);
-    bool removeWatch(int cameraId);
-    SubscriberInfo* getSubscriberInfo(int cameraId);
-
-    int getCameraId(String8 filePath) const;
-    int getCameraId(int wd) const;
-
-    String8 getFilePath(int cameraId) const;
-    int readFile(String8 filePath) const;
-
-    bool createFileIfNotExists(int cameraId) const;
-
-    int mInotifyFd;
-    Vector<int> mSubscribedCameraIds;
-    Vector<SubscriberInfo> mSubscribers;
-
-    // variables above are unguarded:
-    // -- accessed in thread loop or in constructor only
-
     Mutex mMutex;
 
     bool mRunning;          // guarding only when it's important
+    bool mCheckDevPath;
     int mSocketFd;
     struct sockaddr_nl sa;
 };

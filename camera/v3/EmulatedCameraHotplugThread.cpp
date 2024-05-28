@@ -27,33 +27,23 @@
 #include <poll.h>
 #include <cutils/properties.h>
 
-#define FAKE_HOTPLUG_FILE "/data/misc/media/emulator.camera.hotplug"
-
-#define EVENT_SIZE (sizeof(struct inotify_event))
-#define EVENT_BUF_LEN (1024*(EVENT_SIZE+16))
-
-#define SubscriberInfo EmulatedCameraHotplugThread::SubscriberInfo
-
 namespace android {
 
 EmulatedCameraHotplugThread::EmulatedCameraHotplugThread(
     const int* cameraIdArray,
     size_t size) :
-        Thread(/*canCallJava*/false),
-            mInotifyFd(-1),
-            mSocketFd(-1)
+        Thread(/*canCallJava*/false)
 {
 
     mRunning = true;
-    //mInotifyFd = 0;
     memset(&sa, 0, sizeof(struct sockaddr_nl));
-    for (size_t i = 0; i < size; ++i) {
-        //int id = cameraIdArray[i];
-#if 0
-        if (createFileIfNotExists(id)) {
-            mSubscribedCameraIds.push_back(id);
-        }
-#endif
+    char property[PROPERTY_VALUE_MAX];
+    property_get("vendor.camhal.check.dev.path", property, "true");
+    if (strstr(property, "true")) {
+        mCheckDevPath = true;
+    } else {
+        mCheckDevPath = false;
+        mSocketFd = -1;
     }
 }
 
@@ -71,117 +61,53 @@ void EmulatedCameraHotplugThread::requestExit() {
 
     CAMHAL_LOGV("%s: Requesting thread exit", __FUNCTION__);
     mRunning = false;
-
-#if 0
-    const bool rmWatchFailed = false;
-
-    Vector<SubscriberInfo>::iterator it;
-    for (it = mSubscribers.begin(); it != mSubscribers.end(); ++it) {
-
-
-        if (inotify_rm_watch(mInotifyFd, it->WatchID) == -1) {
-
-            CAMHAL_LOGE("%s: Could not remove watch for camID '%d',"
-                  " error: '%s' (%d)",
-                 __FUNCTION__, it->CameraID, strerror(errno),
-                 errno);
-
-            rmWatchFailed = true ;
-        } else {
-            CAMHAL_LOGV("%s: Removed watch for camID '%d'",
-                __FUNCTION__, it->CameraID);
+    if (!mCheckDevPath) {
+        if (shutdown(mSocketFd, SHUT_RD) < 0) {
+            CAMHAL_LOGD("shutdown socket failed errno=%s", strerror(errno));
         }
-
-    }
-
-    if (rmWatchFailed) { // unlikely
-        // Give the thread a fighting chance to error out on the next
-        // read
-        if (TEMP_FAILURE_RETRY(close(mInotifyFd)) == -1) {
-            CAMHAL_LOGE("%s: close failure error: '%s' (%d)",
-                 __FUNCTION__, strerror(errno), errno);
+        if (close(mSocketFd) < 0) {
+            CAMHAL_LOGD("close socket failed errno=%s", strerror(errno));
         }
-    }
-#endif
-
-    if (shutdown(mSocketFd, SHUT_RD) < 0) {
-        CAMHAL_LOGD("shutdown socket failed errno=%s", strerror(errno));
-    }
-    if (close(mSocketFd) < 0) {
-        CAMHAL_LOGD("close socket failed errno=%s", strerror(errno));
     }
 
     CAMHAL_LOGV("%s: Request exit complete.", __FUNCTION__);
 }
 
 status_t EmulatedCameraHotplugThread::readyToRun() {
-    Mutex::Autolock al(mMutex);
 
-    mInotifyFd = -1;
+    if (!mCheckDevPath) {
+        Mutex::Autolock al(mMutex);
 
-    do {
-        CAMHAL_LOGV("%s: Initializing inotify", __FUNCTION__);
+        do {
+            CAMHAL_LOGV("%s: Initializing inotify", __FUNCTION__);
 
-#if 0
-        mInotifyFd = inotify_init();
-        if (mInotifyFd == -1) {
-            CAMHAL_LOGE("%s: inotify_init failure error: '%s' (%d)",
-                 __FUNCTION__, strerror(errno), errno);
-            mRunning = false;
-            break;
-        }
-#endif
-        memset(&sa,0,sizeof(sa));
-        sa.nl_family = AF_NETLINK;
-        sa.nl_groups = NETLINK_KOBJECT_UEVENT;
-        sa.nl_pid = 0;//getpid(); both is ok
+            memset(&sa,0,sizeof(sa));
+            sa.nl_family = AF_NETLINK;
+            sa.nl_groups = NETLINK_KOBJECT_UEVENT;
+            sa.nl_pid = 0;
 
-        mSocketFd = socket(AF_NETLINK,SOCK_RAW,NETLINK_KOBJECT_UEVENT);
-        if (mSocketFd >= 0) {
-            if (bind(mSocketFd,(struct sockaddr *)&sa,sizeof(sa)) == -1) {
+            mSocketFd = socket(AF_NETLINK,SOCK_RAW,NETLINK_KOBJECT_UEVENT);
+            if (mSocketFd >= 0) {
+                if (bind(mSocketFd,(struct sockaddr *)&sa,sizeof(sa)) == -1) {
+                    mRunning = false;
+                    CAMHAL_LOGE("bind error:%s, disable the hotplug thread\n",strerror(errno));
+                }
+            } else {
                 mRunning = false;
-                CAMHAL_LOGE("bind error:%s, disable the hotplug thread\n",strerror(errno));
+                CAMHAL_LOGE("socket creating failed:%s, disable the hotplug thread\n",strerror(errno));
             }
-        } else {
-            mRunning = false;
-            CAMHAL_LOGE("socket creating failed:%s, disable the hotplug thread\n",strerror(errno));
+        } while(false);
+
+        if (!mRunning) {
+            status_t err = -errno;
+            return err;
         }
-
-        /**
-         * For each fake camera file, add a watch for when
-         * the file is closed (if it was written to)
-         */
-        Vector<int>::const_iterator it, end;
-        it = mSubscribedCameraIds.begin();
-        end = mSubscribedCameraIds.end();
-        for (; it != end; ++it) {
-            int cameraId = *it;
-            if (!addWatch(cameraId)) {
-                mRunning = false;
-                break;
-            }
-        }
-    } while(false);
-
-    if (!mRunning) {
-        status_t err = -errno;
-
-#if 0
-        if (mInotifyFd != -1) {
-            TEMP_FAILURE_RETRY(close(mInotifyFd));
-        }
-#endif
-
-        return err;
     }
     return OK;
 }
 
 bool EmulatedCameraHotplugThread::threadLoop() {
-
-    char property[PROPERTY_VALUE_MAX];
-    property_get("vendor.camhal.check.dev.path", property, "true");
-    if (strstr(property,"true")) {
+    if (mCheckDevPath) {
         int cameraId;
         const char* kDevicePath = "/dev/";
         int videoINotifyFD = inotify_init();
@@ -255,7 +181,6 @@ bool EmulatedCameraHotplugThread::threadLoop() {
         }
 
         if (!mRunning) {
-            //TEMP_FAILURE_RETRY(close(mInotifyFd));
             if (videoINotifyFD >= 0)
                 close(videoINotifyFD);
             return false;
@@ -367,167 +292,9 @@ bool EmulatedCameraHotplugThread::threadLoop() {
         }
 
         if (!mRunning) {
-            //TEMP_FAILURE_RETRY(close(mInotifyFd));
             return false;
         }
     }
     return true;
 }
-
-String8 EmulatedCameraHotplugThread::getFilePath(int cameraId) const {
-    return String8::format(FAKE_HOTPLUG_FILE ".%d", cameraId);
-}
-
-bool EmulatedCameraHotplugThread::createFileIfNotExists(int cameraId) const
-{
-    String8 filePath = getFilePath(cameraId);
-    // make sure this file exists and we have access to it
-    int fd = TEMP_FAILURE_RETRY(
-                open(filePath.string(), O_WRONLY | O_CREAT | O_TRUNC,
-                     /* mode = ug+rwx */ S_IRWXU | S_IRWXG ));
-    if (fd == -1) {
-        CAMHAL_LOGE("%s: Could not create file '%s', error: '%s' (%d)",
-             __FUNCTION__, filePath.string(), strerror(errno), errno);
-        return false;
-    }
-
-    // File has '1' by default since we are plugged in by default
-    if (TEMP_FAILURE_RETRY(write(fd, "1\n", /*count*/2)) == -1) {
-        CAMHAL_LOGE("%s: Could not write '1' to file '%s', error: '%s' (%d)",
-             __FUNCTION__, filePath.string(), strerror(errno), errno);
-        close(fd);
-        return false;
-    }
-
-    TEMP_FAILURE_RETRY(close(fd));
-    return true;
-}
-
-int EmulatedCameraHotplugThread::getCameraId(String8 filePath) const {
-    Vector<int>::const_iterator it, end;
-    it = mSubscribedCameraIds.begin();
-    end = mSubscribedCameraIds.end();
-    for (; it != end; ++it) {
-        String8 camPath = getFilePath(*it);
-
-        if (camPath == filePath) {
-            return *it;
-        }
-    }
-
-    return NAME_NOT_FOUND;
-}
-
-int EmulatedCameraHotplugThread::getCameraId(int wd) const {
-    for (size_t i = 0; i < mSubscribers.size(); ++i) {
-        if (mSubscribers[i].WatchID == wd) {
-            return mSubscribers[i].CameraID;
-        }
-    }
-
-    return NAME_NOT_FOUND;
-}
-
-SubscriberInfo* EmulatedCameraHotplugThread::getSubscriberInfo(int cameraId)
-{
-    for (size_t i = 0; i < mSubscribers.size(); ++i) {
-        if (mSubscribers[i].CameraID == cameraId) {
-            return (SubscriberInfo*)&mSubscribers[i];
-        }
-    }
-
-    return NULL;
-}
-
-bool EmulatedCameraHotplugThread::addWatch(int cameraId) {
-    String8 camPath = getFilePath(cameraId);
-    int wd = 0;
-#if 0
-    int wd = inotify_add_watch(mInotifyFd,
-                               camPath.string(),
-                               IN_CLOSE_WRITE);
-
-    if (wd == -1) {
-        CAMHAL_LOGE("%s: Could not add watch for '%s', error: '%s' (%d)",
-             __FUNCTION__, camPath.string(), strerror(errno),
-             errno);
-
-        mRunning = false;
-        return false;
-    }
-#endif
-
-    CAMHAL_LOGV("%s: Watch added for camID='%d', wd='%d'",
-          __FUNCTION__, cameraId, wd);
-
-    SubscriberInfo si = { cameraId, wd };
-    mSubscribers.push_back(si);
-
-    return true;
-}
-
-bool EmulatedCameraHotplugThread::removeWatch(int cameraId) {
-    SubscriberInfo* si = getSubscriberInfo(cameraId);
-
-    if (!si) return false;
-
-#if 0
-    if (inotify_rm_watch(mInotifyFd, si->WatchID) == -1) {
-
-        CAMHAL_LOGE("%s: Could not remove watch for camID '%d', error: '%s' (%d)",
-             __FUNCTION__, cameraId, strerror(errno),
-             errno);
-
-        return false;
-    }
-#endif
-
-    Vector<SubscriberInfo>::iterator it;
-    for (it = mSubscribers.begin(); it != mSubscribers.end(); ++it) {
-        if (it->CameraID == cameraId) {
-            break;
-        }
-    }
-
-    if (it != mSubscribers.end()) {
-        mSubscribers.erase(it);
-    }
-
-    return true;
-}
-
-int EmulatedCameraHotplugThread::readFile(String8 filePath) const {
-
-    int fd = TEMP_FAILURE_RETRY(
-                open(filePath.string(), O_RDONLY, /*mode*/0));
-    if (fd == -1) {
-        CAMHAL_LOGE("%s: Could not open file '%s', error: '%s' (%d)",
-             __FUNCTION__, filePath.string(), strerror(errno), errno);
-        return -1;
-    }
-
-    char buffer[1];
-    int length;
-
-    length = TEMP_FAILURE_RETRY(
-                    read(fd, buffer, sizeof(buffer)));
-
-    int retval;
-
-    CAMHAL_LOGV("%s: Read file '%s', length='%d', buffer='%c'",
-         __FUNCTION__, filePath.string(), length, buffer[0]);
-
-    if (length == 0) { // EOF
-        retval = 0; // empty file is the same thing as 0
-    } else if (buffer[0] == '0') {
-        retval = 0;
-    } else { // anything non-empty that's not beginning with '0'
-        retval = 1;
-    }
-
-    TEMP_FAILURE_RETRY(close(fd));
-
-    return retval;
-}
-
 } //namespace android

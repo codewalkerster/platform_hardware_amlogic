@@ -409,7 +409,7 @@ bool CameraVirtualDevice::isNormalExternalCameraByName(char *dev_name) {
     if (pDev->type == USB_CAM_DEV) {
         bool bypass = false;
         if (!strcmp(pDev->name, HDMI_VDIN_VIDEO_PATH)) {
-            if (!(HDMIStatus::getInstance()->isStandardHDMICamera()))
+            if (!(HDMIStatus::isStandardHDMICamera()))
                 bypass = true;
         } else {
             if (!isStandardUSBCamera(pDev->name))

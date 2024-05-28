@@ -93,7 +93,8 @@ EmulatedCameraFactory::EmulatedCameraFactory()
 
     /* Create hotplug thread */
 
-    mHDMIStatusInstance->startDetectStatus();
+    mHDMIHotplugThread = new HDMIHotplugThread(mHDMIStatusInstance->getHdmiFd());
+    mHDMIHotplugThread->run("");
     CAMHAL_LOGD("start detect hdmi");
     mConstructedOK = true;
 }
@@ -111,6 +112,12 @@ EmulatedCameraFactory::~EmulatedCameraFactory()
         mHotplugThread->requestExit();
         mHotplugThread->join();
         mHotplugThread = NULL;
+    }
+
+    if (mHDMIHotplugThread != NULL) {
+        mHDMIHotplugThread->requestExit();
+        mHDMIHotplugThread->join();
+        mHDMIHotplugThread = NULL;
     }
 
     if (mHDMIStatusInstance) {

@@ -215,6 +215,7 @@ private:
 
     /* Hotplug thread (to call onStatusChanged) */
     HDMIStatus* mHDMIStatusInstance;
+    sp<HDMIHotplugThread> mHDMIHotplugThread;
     sp<EmulatedCameraHotplugThread> mHotplugThread;
     Mutex mMutex;
 

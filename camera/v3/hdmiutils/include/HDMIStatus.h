@@ -27,38 +27,37 @@ typedef enum plug_status {
 class HDMIStatus {
 private:
     static HDMIStatus* mInstance;
-    static Mutex mLock;
     static int m_hdmi_fd;
 private:
     HDMIStatus();
     ~HDMIStatus();
 public:
-    plug_status_e getHdmiStatus();
-    int readHdmiStatus();
-    bool isStandardHDMICamera();
-    int getHdmiPlugStatus(int old_status, int new_status, int port);
-    void startDetectStatus();
+    static int readHdmiStatus();
+    static bool isStandardHDMICamera();
+    static int getHdmiPlugStatus(int old_status, int new_status, int port);
     static HDMIStatus* getInstance();
     static void putInstance();
+    int getHdmiFd();
 private:
-    class HDMIHotplugThread : public Thread {
-      public:
-        HDMIHotplugThread(HDMIStatus* parent);
-        ~HDMIHotplugThread();
-        virtual void requestExit();
-        virtual status_t requestExitAndWait();
-      private:
-        virtual status_t readyToRun();
-        virtual bool threadLoop();
-        int hdmi_detect_bit;
-        int epoll_fd = -1;
-        epoll_event *backEvents = nullptr;
-        int m_hdmi_status = 0;
-        HDMIStatus* mParent;
-    };
-    sp<HDMIHotplugThread> mHDMIHotplugThread;
-    bool threadRunning = false;
+    static plug_status_e getHdmiStatus();
+};
 
+class HDMIHotplugThread : public Thread {
+public:
+    HDMIHotplugThread(int _m_hdmi_fd);
+    ~HDMIHotplugThread();
+    virtual void requestExit();
+    virtual status_t requestExitAndWait();
+private:
+    virtual status_t readyToRun();
+    virtual bool threadLoop();
+    int hdmi_detect_bit;
+    int epoll_fd = -1;
+    epoll_event *backEvents = nullptr;
+    int m_hdmi_status = 0;
+    int m_hdmi_fd;
+    bool mRunning;
+    Mutex mMutex;
 };
 
 }
