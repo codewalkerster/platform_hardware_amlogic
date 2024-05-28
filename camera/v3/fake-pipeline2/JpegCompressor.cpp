@@ -921,11 +921,14 @@ status_t JpegCompressor::compress() {
             CAMHAL_LOGD("not support this format:%d",enc_params.format);
             break;
     }
-    mHwEnc->encode(enc_params.in_width, enc_params.in_height,
+    int retHwEnc = mHwEnc->encode(enc_params.in_width, enc_params.in_height,
                             enc_params.quality,
                             format,
                             enc_params.src,
                             enc_params.dst, &mMainJpegSize);
+    if (retHwEnc < 0) {
+        mMainJpegSize = encode(&enc_params);
+    }
 #endif
     CAMHAL_LOGD("mMainJpegSize = %d",mMainJpegSize);
 
