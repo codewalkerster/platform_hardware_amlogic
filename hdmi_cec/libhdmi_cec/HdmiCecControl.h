@@ -91,6 +91,7 @@
 
 
 #define PROPERTY_EARC_SUPPORTED         "ro.vendor.media.support_earc"
+#define PROPERTY_OSD_NAME               "ro.product.model"
 
 #define SEND_MESSAGE_RETRY_HAL          2
 
@@ -161,6 +162,7 @@ typedef struct hdmi_device {
     int                         active_routing_path;
     int                         *added_phy_addr;
     int                         *vendor_ids;
+    char*                       device_name;
 
     cec_wake_t                  cec_wake_status;
 } hdmi_device_t;
@@ -200,6 +202,7 @@ protected:
         static const int MSG_USER_CONTROL_PRESSED =     7;
         static const int MSG_REPORT_PHYSICAL_ADDRESS =  8;
         static const int MSG_MAY_SEND_SET_STREAM_PATH = 9;
+        static const int MSG_SET_OSD_NAME =             10;
 
         MsgHandler(HdmiCecControl *hdmiControl);
         ~MsgHandler();

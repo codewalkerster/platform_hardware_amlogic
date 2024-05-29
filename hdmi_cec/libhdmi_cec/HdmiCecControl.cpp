@@ -91,6 +91,23 @@ void HdmiCecControl::MsgHandler::handleMessage (CMessage &msg)
         case HdmiCecControl::MsgHandler::MSG_MAY_SEND_SET_STREAM_PATH:
             mControl->maySendSetStreamPath();
             break;
+        case HdmiCecControl::MsgHandler::MSG_SET_OSD_NAME: {
+            LOGI("send set osd name message %s", mControl->mCecDevice.device_name);
+            cec_message_t message;
+            message.initiator = (cec_logical_address_t)mControl->mCecDevice.playback_logical_addr;
+            message.destination = CEC_ADDR_TV;
+            message.body[0] = CEC_MESSAGE_SET_OSD_NAME;
+            size_t length = std::strlen(mControl->mCecDevice.device_name);
+            if (length > (CEC_MESSAGE_BODY_MAX_LENGTH - 2)) {
+                length = CEC_MESSAGE_BODY_MAX_LENGTH - 2;
+            }
+            message.length = length + 1;
+            for (size_t i = 0; i < length; ++i) {
+                message.body[i + 1] = static_cast<unsigned char>(mControl->mCecDevice.device_name[i]);
+            }
+            mControl->send(&message);
+            break;
+        }
     }
 }
 
@@ -133,12 +150,15 @@ HdmiCecControl::HdmiCecControl(int event)
     mCecDevice.is_cec_enabled = getPropertyBoolean(PROPERTY_CEC_ENABLED, true);
     mCecDevice.is_cec_controlled = true;
     mCecDevice.hdmi_cfg_init = false;
+    mCecDevice.device_name = new char[PROPERTY_VALUE_MAX];
     mCecEvent = event;
     getDeviceTypes();
     mCachedRoutingEvent = NULL;
     mVendorEventListener = NULL;
     mWakeEnabled = 1;
     mIsReboot = false;
+    property_get(PROPERTY_OSD_NAME, mCecDevice.device_name, mCecDevice.is_playback ? "BOX" : "TV");
+    LOGI("osd name %s", mCecDevice.device_name);
 
     int index = 0;
     mCecDevice.added_phy_addr = new int[CEC_ADDR_BROADCAST];
@@ -196,6 +216,7 @@ HdmiCecControl::~HdmiCecControl()
     delete [] mCecDevice.device_types;
     delete [] mCecDevice.added_phy_addr;
     delete [] mCecDevice.vendor_ids;
+    delete [] mCecDevice.device_name;
     LOGI("%s, cec has closed.", __FUNCTION__);
 }
 
@@ -849,6 +870,15 @@ void HdmiCecControl::messageValidateAndHandle(hdmi_cec_event_t* event)
             case CEC_MESSAGE_SET_MENU_LANGUAGE:
                 handleSetMenuLanguage(event);
                 break;
+            case CEC_MESSAGE_GIVE_OSD_NAME:
+                if (event->cec.initiator == CEC_ADDR_TV && !mCecDevice.is_audio_system) {
+                    msg.mType = HdmiCecControl::MsgHandler::MSG_SET_OSD_NAME;
+                    // If there is no osd name message from app layer, then send the default one.
+                    msg.mDelayMs = 1000;
+                    mMsgHandler->removeMsg(msg);
+                    mMsgHandler->sendMsg(msg);
+                }
+                break;
         }
     }
 }
@@ -1088,6 +1118,14 @@ int HdmiCecControl::preHandleOfSend(const cec_message_t* message)
             }
             break;
         }
+        case CEC_MESSAGE_SET_OSD_NAME:
+            if (mCecDevice.is_playback && (message->destination == CEC_ADDR_TV)) {
+                CMessage msg;
+                msg.mType = HdmiCecControl::MsgHandler::MSG_SET_OSD_NAME;
+                // Remove the pending protection osd message.
+                mMsgHandler->removeMsg(msg);
+            }
+            break;
         default:
             break;
     }
