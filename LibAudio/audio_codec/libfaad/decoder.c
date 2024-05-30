@@ -1885,7 +1885,7 @@ start_decode:
         if (adts.aac_frame_length > buffer_size) {
             hInfo->error = 35; //more data needed
             audio_codec_print("decoder need more data for adts frame,frame len %d,have %lu \n", adts.aac_frame_length, buffer_size);
-            if (adts.aac_frame_length > 6 * 768) {
+            if (adts.aac_frame_length > 8192) {
                 audio_codec_print("adts frame len exceed aac spec \n");
                 hInfo->error = 36;//
                 goto error;
