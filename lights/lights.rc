@@ -1,8 +1,7 @@
 service vendor.lights  /vendor/bin/hw/lights
     class hal
-    user system
+    user nobody
     group system
     # FIXME: actually do this
     # shutting off lights while powering-off
     shutdown critical
-    oneshot
