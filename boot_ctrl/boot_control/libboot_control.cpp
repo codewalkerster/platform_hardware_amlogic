@@ -404,8 +404,8 @@ char* get_bootloader_env(const char * name)
         delete ubootenv;
         return NULL;
     }
-    memset(env_buffer, 0, 64);
-    strncpy(env_buffer, uboot_env, strlen(uboot_env));
+    memset(env_buffer, 0, sizeof(env_buffer));
+    strncpy(env_buffer, uboot_env, sizeof(env_buffer) - 1);
     delete ubootenv;
     return env_buffer;
 }
@@ -430,8 +430,8 @@ char* get_bootloader_env_common(const char * name) {
     } else {
         std::string tmp;
         sc_read_bootenv(name, tmp);
-        memset(env_buffer, 0, 64);
-        strncpy(env_buffer, tmp.c_str(), strlen(tmp.c_str()));
+        memset(env_buffer, 0, sizeof(env_buffer));
+        strncpy(env_buffer, tmp.c_str(), sizeof(env_buffer) - 1);
         return env_buffer;
     }
 }
