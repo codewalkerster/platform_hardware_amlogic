@@ -450,7 +450,8 @@ int CheckUpdateStatus(bootloader_control* boot_ctrl) {
         return -1;
     }
 
-    strncpy(name, contents.c_str(), 8);
+    memset(name, 0, sizeof(name));
+    strncpy(name, contents.c_str(), sizeof(name) - 1);
 
     if (name[1])
         boot_ctrl->merge_flag = name[1];
