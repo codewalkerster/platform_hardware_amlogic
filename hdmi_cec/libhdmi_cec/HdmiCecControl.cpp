@@ -871,7 +871,8 @@ void HdmiCecControl::messageValidateAndHandle(hdmi_cec_event_t* event)
                 handleSetMenuLanguage(event);
                 break;
             case CEC_MESSAGE_GIVE_OSD_NAME:
-                if (event->cec.initiator == CEC_ADDR_TV && !mCecDevice.is_audio_system) {
+                if (event->cec.initiator == CEC_ADDR_TV && event->cec.destination != CEC_ADDR_BROADCAST
+                        && !mCecDevice.is_audio_system) {
                     msg.mType = HdmiCecControl::MsgHandler::MSG_SET_OSD_NAME;
                     // If there is no osd name message from app layer, then send the default one.
                     msg.mDelayMs = 1000;
