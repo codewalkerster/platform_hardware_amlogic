@@ -250,7 +250,7 @@ int EmulatedCameraFactory::setTorchMode(const char* camera_id, bool enabled)
 }
 
 int EmulatedCameraFactory::isStreamCombinationSupported(int camera_id, const camera_stream_combination_t *streams) {
-    if (camera_id < 0 || camera_id > MAX_CAMERA_NUM)
+    if (camera_id < 0 || camera_id >= MAX_CAMERA_NUM)
         return -ENOSYS;
     if (mEmulatedCameras[camera_id] == nullptr)
         return -ENOSYS;

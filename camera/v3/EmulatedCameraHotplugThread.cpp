@@ -165,7 +165,7 @@ bool EmulatedCameraHotplugThread::threadLoop() {
                     struct inotify_event* event = (struct inotify_event*)&eventBuf[offset];
                     if (event->wd == videoWd) {
                         if (!strncmp(kPrefix, event->name, kPrefixLen)) {
-                            std::string deviceId(event->name + kPrefixLen);
+                            std::string deviceId(event->name + kPrefixLen, event->len-5);
                             cameraId = stoi(deviceId);
                             if (event->mask & IN_CREATE) {
                                 gEmulatedCameraFactory.onStatusChanged(cameraId, CAMERA_DEVICE_STATUS_PRESENT);

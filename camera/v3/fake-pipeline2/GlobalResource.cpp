@@ -15,7 +15,8 @@ GlobalResource* GlobalResource::getInstance() {
         return mInstance;
      } else {
         Mutex::Autolock lock(&mLock);
-        mInstance = new GlobalResource();
+        if (mInstance == nullptr)
+            mInstance = new GlobalResource();
         return mInstance;
      }
  }

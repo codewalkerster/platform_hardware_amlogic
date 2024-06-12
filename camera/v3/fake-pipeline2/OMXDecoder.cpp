@@ -1243,10 +1243,12 @@ bool OMXDecoder::OMXWaitForVSync(nsecs_t reltime) {
     //ATRACE_CALL();
     int res;
     Mutex::Autolock lock(mOMXControlMutex);
-    res = mOMXVSync.waitRelative(mOMXControlMutex, reltime);
-    if (res != OK) {
-        CAMHAL_LOGE("%s: Error waiting for VSync signal: %d", __FUNCTION__, res);
-        return false;
+    if (false == hasReadyOutputBuffer()) {
+        res = mOMXVSync.waitRelative(mOMXControlMutex, reltime);
+        if (res != OK) {
+            CAMHAL_LOGE("%s: Error waiting for VSync signal: %d", __FUNCTION__, res);
+            return false;
+        }
     }
     return true;
 }
@@ -1277,13 +1279,8 @@ int OMXDecoder::Decode(uint8_t*src, size_t src_size, Vector<StreamBuffer>& b, bo
     QueueBuffer(src, src_size);
 
     bool state = true;
-    if ( false == hasReadyOutputBuffer() ) {
-        // no ready output buf. wait
-        state = OMXWaitForVSync(mWaitVsyncDuration*1000*1000);
-    } else {
-        // has ready output buf. state should be true.
-        state = true;
-    }
+
+    state = OMXWaitForVSync(mWaitVsyncDuration*1000*1000);
 
     if (state) {
         mContinuousVsyncFailNum = 0;
@@ -1309,13 +1306,8 @@ int OMXDecoder::Decode(uint8_t*src, size_t src_size, Vector<StreamBuffer>& b, bo
 int OMXDecoder::DecodeAsync(uint8_t*src, size_t src_size, Vector<StreamBuffer>& b, bool isJpegRequest) {
     int ret = 0;
     bool state = true;
-    if ( false == hasReadyOutputBuffer() ) {
-        // no ready output buf. wait
-        state = OMXWaitForVSync(mWaitVsyncDuration*1000*1000);
-    } else {
-        // has ready output buf. state should be true.
-        state = true;
-    }
+
+    state = OMXWaitForVSync(mWaitVsyncDuration*1000*1000);
 
     if (state) {
         mContinuousVsyncFailNum = 0;
