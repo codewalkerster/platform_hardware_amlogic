@@ -22,23 +22,18 @@
 namespace android {
 
 static const usb_frmsize_discrete_t kUsbAvailablePictureSize[] = {
-        {4128, 3096},
         {3840, 2160},
-        {3264, 2448},
 #ifndef VICP_ENABLE
         {2592, 1944},
 #endif
-        {2560, 1920},
-        {2048, 1536},
-        {1600, 1200},
         {1920, 1080},
 #ifndef VICP_ENABLE
         {1440, 1080},
 #endif
-        {1280, 960},
         {1280, 720},
-        {1024, 768},
-        {960, 720},
+        {1024, 576},
+        {960, 540},
+        {720, 480},
         {640, 480},
 #ifndef VICP_ENABLE
         {352, 288},
@@ -800,7 +795,7 @@ int USBSensorHWDec::captureNV21UseSavedBuf(StreamBuffer &b, bufInfo *savedBuffer
 #ifdef GE2D_ENABLE
                 if (savedBuffer->fd != -1) {
                     mGE2D->ge2d_keep_ration_scale(b.share_fd, PIXEL_FORMAT_YCbCr_420_SP_NV12, b.width, b.height,
-                                          savedBuffer->fd, savedBuffer->width, savedBuffer->height);
+                                          savedBuffer->fd, savedBuffer->width, savedBuffer->height, b.stride);
                 } else {
                     mCameraUtil->ReSizeNV21(savedBuffer->vaddr, b.img, b.width, b.height, b.stride, savedBuffer->width, savedBuffer->height);
                 }
@@ -1037,7 +1032,7 @@ void USBSensorHWDec::captureNV21UsbSensor(Vector<StreamBuffer>& b, uint32_t gain
                         bool bypass = property_get_bool("vendor.camera.bypass.ge2d", true);
                         if (fd != -1 && !bypass) {
                             mGE2D->ge2d_keep_ration_scale(b[i].share_fd, PIXEL_FORMAT_YCbCr_420_SP_NV12,
-                                                          b[i].width, b[i].height, fd, width, height);
+                                                          b[i].width, b[i].height, fd, width, height, b[i].stride);
                         } else if (src != nullptr) {
                             if (width == b[i].width && height == b[i].height) {
                                 memcpy(b[i].img, src, width * height * 3 / 2);
