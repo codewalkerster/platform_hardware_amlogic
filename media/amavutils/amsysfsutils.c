@@ -179,8 +179,9 @@ int amsysfs_get_sysfs_int16(const char *path)
         }
         fd = open(path, O_RDONLY);
         if (fd >= 0) {
-            ret = read(fd, bcmd, sizeof(bcmd));
+            ret = read(fd, bcmd, sizeof(bcmd) - 1);
             if (ret >= 0) {
+                bcmd[ret] = '\0';
                 val = strtol(bcmd, NULL, 16);
             } else {
                 LOGE("Error reading from file %s: %s", path, strerror(errno));

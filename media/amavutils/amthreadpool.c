@@ -201,7 +201,10 @@ int amthreadpool_thread_usleep_in_monotonic(int us)
     pthread_ts.tv_sec = tnow.tv_sec + (us64 + tnow.tv_usec) / 1000000;
     pthread_ts.tv_nsec = ((us64 + tnow.tv_usec) * 1000) % 1000000000;
     pthread_mutex_lock(&t->pthread_mutex);
-    ret = pthread_cond_timedwait(&t->pthread_cond, &t->pthread_mutex, &pthread_ts);
+    int condition = 1;
+    while (condition--) {
+        ret = pthread_cond_timedwait(&t->pthread_cond, &t->pthread_mutex, &pthread_ts);
+    }
 #endif
     pthread_mutex_unlock(&t->pthread_mutex);
     return ret;
@@ -237,7 +240,10 @@ int amthreadpool_thread_usleep_in(int us)
     pthread_ts.tv_sec = now.tv_sec + (us64 + now.tv_usec) / 1000000;
     pthread_ts.tv_nsec = ((us64 + now.tv_usec) * 1000) % 1000000000;
     pthread_mutex_lock(&t->pthread_mutex);
-    ret = pthread_cond_timedwait(&t->pthread_cond, &t->pthread_mutex, &pthread_ts);
+    int condition = 1;
+    while (condition--) {
+        ret = pthread_cond_timedwait(&t->pthread_cond, &t->pthread_mutex, &pthread_ts);
+    }
     pthread_mutex_unlock(&t->pthread_mutex);
     return ret;
 }
