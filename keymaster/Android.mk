@@ -98,8 +98,15 @@ TRUSTY_INCLUDES = system/core/trusty/libtrusty/include \
                    system/security/provisioner/
 
 LOCAL_C_INCLUDES := \
-                    $(LOCAL_PATH)/include \
-                    $(PLATFORM_TDK_PATH)/ca_export_arm/include
+                    $(LOCAL_PATH)/include
+
+ifeq ($(PLATFORM_TDK_PATH),)
+LOCAL_C_INCLUDES += \
+    vendor/amlogic/common/tdk_v3/ca_export_arm/include
+else
+LOCAL_C_INCLUDES += \
+    $(PLATFORM_TDK_PATH)/ca_export_arm/include
+endif
 
 LOCAL_SHARED_LIBRARIES := \
                     android.hardware.security.keymint-V3-ndk \
@@ -166,8 +173,15 @@ LOCAL_SRC_FILES += keymint/AmlogicSecureClock.cpp \
                     AmlogicKeymaster.cpp
 
 LOCAL_C_INCLUDES := \
-                    $(LOCAL_PATH)/include \
-                    $(PLATFORM_TDK_PATH)/ca_export_arm/include
+                    $(LOCAL_PATH)/include
+
+ifeq ($(PLATFORM_TDK_PATH),)
+LOCAL_C_INCLUDES += \
+    vendor/amlogic/common/tdk_v3/ca_export_arm/include
+else
+LOCAL_C_INCLUDES += \
+    $(PLATFORM_TDK_PATH)/ca_export_arm/include
+endif
 
 LOCAL_SHARED_LIBRARIES := \
                     android.hardware.security.keymint-V3-ndk \
