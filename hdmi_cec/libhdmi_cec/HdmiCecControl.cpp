@@ -1249,10 +1249,22 @@ void HdmiCecControl::updateActiveState(const cec_message_t* message, bool receiv
                 LOGD("%s received messag:%x active state:%d", __FUNCTION__, opcode, value);
                 updated = true;
                 break;
-            case CEC_MESSAGE_STANDBY:
+            }
+            case CEC_MESSAGE_STANDBY: {
                 value = ACTIVENESS_STATE_OFF;
                 LOGD("%s received standby message!", __FUNCTION__);
                 updated = true;
+                break;
+            }
+            case CEC_MESSAGE_REPORT_POWER_STATUS: {
+                if (message->initiator == CEC_ADDR_TV && message->length == 2) {
+                    int powerStatus = message->body[1] & 0xff;
+                    LOGD("%s received tv power status %d", __FUNCTION__, powerStatus);
+                    if (powerStatus == POWER_STATUS_STANDBY) {
+                        value = ACTIVENESS_STATE_OFF;
+                        updated = true;
+                    }
+                }
                 break;
             }
         }
