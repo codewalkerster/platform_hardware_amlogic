@@ -39,7 +39,7 @@ public:
     HWVideoDecoder();
     virtual ~HWVideoDecoder();
 
-    virtual bool initialize(uint32_t streamType, uint32_t bitstream_width, uint32_t bitstream_height, uint32_t framerate, DecoderMode workMode);
+    virtual bool initialize(uint32_t streamType, uint32_t bitstream_width, uint32_t bitstream_height, uint32_t framerate, DecoderMode workMode, int _dataspace);
     virtual void deinitialize();
 
     virtual DecoderStatus getDecoderStatus();

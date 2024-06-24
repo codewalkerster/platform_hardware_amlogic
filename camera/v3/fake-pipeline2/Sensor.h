@@ -177,6 +177,8 @@ class Sensor: public Thread, public virtual RefBase {
     void setTestPatternMode(int32_t testPatternMode);
     void  setFlushFlag(bool flushFlag);
     void setDeviceName(char* name);
+    inline void setDataSpace(int _dataspace) { dataspace = _dataspace; }
+    inline int getDataSpace() { return dataspace; }
     virtual status_t force_reset_sensor();
     bool get_sensor_status();
     virtual bool isNeedDump();
@@ -311,6 +313,7 @@ class Sensor: public Thread, public virtual RefBase {
     uint32_t mFramecount;
     float mCurFps;
     bool mLowLatencyMode;
+    int dataspace;
 
     struct DecoderTask {
         mutable std::mutex lock;

@@ -12,6 +12,7 @@
 #include <utils/Log.h>
 #include <utils/threads.h>
 #include <ui/GraphicBufferAllocator.h>
+#include <ui/GraphicBufferMapper.h>
 #include <hardware/gralloc1.h>
 #include <amlogic/am_gralloc_ext.h>
 #include "CamHalDebugLog.h"
@@ -61,7 +62,7 @@ void IONInterface::put_instance() {
     }
 }
 
-uint8_t* IONInterface::alloc_buffer(size_t size, int* share_fd, bufferMode mode) {
+uint8_t* IONInterface::alloc_buffer(size_t size, int* share_fd, bufferMode mode, int dataspace) {
     CAMHAL_LOGD("%s\n", __FUNCTION__);
     IONBufferNode* pBuffer = nullptr;
     int i = 0;
@@ -101,6 +102,9 @@ uint8_t* IONInterface::alloc_buffer(size_t size, int* share_fd, bufferMode mode)
             CAMHAL_LOGE("get fd fail");
             return nullptr;
         }
+    }
+    if (dataspace > 0) {
+        GraphicBufferMapper::get().setDataspace(pBuffer->buffer_handle, (ui::Dataspace)dataspace);
     }
     uint8_t* cpu_ptr = (uint8_t*)mmap(nullptr, size, PROT_READ | PROT_WRITE, MAP_SHARED,
                                       pBuffer->share_fd, 0);

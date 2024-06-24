@@ -103,7 +103,7 @@ public:
     // interface functions inherited from HWVideoDecoder
 public:
 
-    virtual bool initialize(uint32_t dec_type, uint32_t bitstream_width, uint32_t bitstream_height, uint32_t framerate, HWVideoDecoder::DecoderMode workMode);
+    virtual bool initialize(uint32_t dec_type, uint32_t bitstream_width, uint32_t bitstream_height, uint32_t framerate, HWVideoDecoder::DecoderMode workMode, int _dataspace);
     virtual void deinitialize();
 
     virtual HWVideoDecoder::DecoderStatus getDecoderStatus();
@@ -220,6 +220,7 @@ private:
     vicpTransform* mVICP;
 #endif
     IONInterface* mION;
+    int dataspace;
     int mWaitOutBufDurationMs;
 
     FILE* mInputDumpFile;
@@ -830,7 +831,7 @@ HWVideoDecoderImpl::~HWVideoDecoderImpl()
 }
 
 
-bool HWVideoDecoderImpl::initialize(uint32_t streamType, uint32_t bitstream_width, uint32_t bitstream_height, uint32_t framerate, HWVideoDecoder::DecoderMode workMode)
+bool HWVideoDecoderImpl::initialize(uint32_t streamType, uint32_t bitstream_width, uint32_t bitstream_height, uint32_t framerate, HWVideoDecoder::DecoderMode workMode, int _dataspace)
 {
     uint32_t vFmt = VFORMAT_MJPEG;
     int ret = -1;
@@ -865,6 +866,7 @@ bool HWVideoDecoderImpl::initialize(uint32_t streamType, uint32_t bitstream_widt
     mDqHeight = 0;
     mFormatWidth = 0;
     mFormatHeight = 0;
+    dataspace = _dataspace;
 
     switch (streamType) {
         case HWVideoDecoder::H264_STREAM:
@@ -1644,7 +1646,7 @@ int HWVideoDecoderImpl::preAllocOutputBufferLocked(uint32_t requestedNumOfBuffer
     uint32_t imagesize = (mDqWidth * mDqHeight * 3) / 2;
     uint32_t transitionalImageSize = (mTransitionalSize.width * mTransitionalSize.height * 3) / 2;
     if (mFormatWidth >= 3840 && mFormatHeight >= 2160) {
-        vaddr = mION->alloc_buffer(transitionalImageSize, &fd);
+        vaddr = mION->alloc_buffer(transitionalImageSize, &fd, noncache, dataspace);
         if (!vaddr) {
             mStatus = HWVideoDecoder::RUNTIME_ERROR;
             CAMHAL_LOGE("alloc transitional buffer fail");
@@ -1660,7 +1662,7 @@ int HWVideoDecoderImpl::preAllocOutputBufferLocked(uint32_t requestedNumOfBuffer
 
     for (uint32_t i = 0; i < mOutputBufferNum; i++) {
 
-        vaddr = mION->alloc_buffer(imagesize, &fd);
+        vaddr = mION->alloc_buffer(imagesize, &fd, noncache, dataspace);
         if (!vaddr) {
             mStatus = HWVideoDecoder::RUNTIME_ERROR;
             ret = -1;
@@ -1996,11 +1998,11 @@ HWVideoDecoder::~HWVideoDecoder()
     }
 }
 
-bool HWVideoDecoder::initialize(uint32_t stream_type, uint32_t bitstream_width, uint32_t bitstream_height, uint32_t framerate, DecoderMode workMode)
+bool HWVideoDecoder::initialize(uint32_t stream_type, uint32_t bitstream_width, uint32_t bitstream_height, uint32_t framerate, DecoderMode workMode, int _dataspace)
 {
     if (mPrivateImpl) {
         HWVideoDecoderImpl * impl = static_cast<HWVideoDecoderImpl *> (mPrivateImpl);
-        return impl->initialize( stream_type,  bitstream_width,  bitstream_height, framerate, workMode);
+        return impl->initialize( stream_type,  bitstream_width,  bitstream_height, framerate, workMode, _dataspace);
     }
     return false;
 }

@@ -519,7 +519,7 @@ void USBSensorHWDec::initDecoder(int in_width, int in_height, int out_width, int
         }
 
         uint32_t   default_fps = 30;
-        mHWDecoder->initialize(stream_type, in_width, in_height, default_fps, decoderWorkMode);
+        mHWDecoder->initialize(stream_type, in_width, in_height, default_fps, decoderWorkMode, getDataSpace());
 
         mIsDecoderInit=true;
     } else {
@@ -1677,10 +1677,10 @@ int USBSensorHWDec::captureNewImage() {
 #ifdef GE2D_ENABLE
                 if (getOutputFormat() == V4L2_PIX_FMT_YUYV) {
                     bAux.img = mION->alloc_buffer(bAux.stride * bAux.height * 2, &bAux.share_fd,
-                        cache);
+                        cache, getDataSpace());
                 } else {
                     bAux.img = mION->alloc_buffer(bAux.stride * bAux.height * 3 / 2,
-                        &bAux.share_fd);
+                        &bAux.share_fd, noncache, getDataSpace());
                 }
 #else
                 if (getOutputFormat() == V4L2_PIX_FMT_YUYV) {
