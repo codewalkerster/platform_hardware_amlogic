@@ -141,8 +141,8 @@ namespace android {
             void setIOBufferNum();
 
             int reAllocSoftwareBuffer(int width, int height);
-            int checkAndGetNextSensorData(uint8_t **outDataAddr, uint32_t *outDataLen);
-            int checkAndGetLatestSensorData(uint8_t **outDataAddr, uint32_t *outDataLen);
+            int checkAndGetNextSensorData(uint8_t **outDataAddr, uint32_t *outDataLen, int32_t *outDataFd = nullptr);
+            int checkAndGetLatestSensorData(uint8_t **outDataAddr, uint32_t *outDataLen, int32_t *outDataFd = nullptr);
             void captureNV21UsbSensor(StreamBuffer b, uint32_t gain, bool needSensorOutBuf);
             void captureNV21UsbSensor(Vector<StreamBuffer>& b, uint32_t gain, bool isJpegRequest);
             int captureNV21UseSavedBuf(StreamBuffer &b, bufInfo * savedBuf);

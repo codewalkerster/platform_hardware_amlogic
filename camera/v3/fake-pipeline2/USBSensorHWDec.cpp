@@ -283,7 +283,10 @@ uint32_t USBSensorHWDec::getStreamUsage(aml_camera_stream_t& stream){
     ATRACE_CALL();
 
     uint32_t usage = (GRALLOC_USAGE_HW_TEXTURE | GRALLOC_USAGE_HW_RENDER);
-    if (stream.format == HAL_PIXEL_FORMAT_BLOB || (this -> getOutputFormat() == V4L2_PIX_FMT_YUYV) || this -> isNeedDump())
+    if (stream.format == HAL_PIXEL_FORMAT_BLOB ||
+       (this -> getOutputFormat() == V4L2_PIX_FMT_YUYV) ||
+       (this -> getOutputFormat() == V4L2_PIX_FMT_NV21) ||
+        this -> isNeedDump())
         usage = (usage | GRALLOC_USAGE_SW_READ_MASK | GRALLOC_USAGE_SW_WRITE_MASK);
     usage = GRALLOC1_PRODUCER_USAGE_CAMERA | usage;
     CAMHAL_LOGV("%s: usage=0x%x", __FUNCTION__,usage);
@@ -428,19 +431,19 @@ status_t USBSensorHWDec::setOutputFormat(int width, int height,
                 width, height, mDecoderStreamType, mHWDecoderWorkMode);
             break;
         }
-        ret = getOutputFormat(width, height, V4L2_PIX_FMT_YUYV);
-        if (ret) {
-            pixelformat = ret;
-            mHWDecoderWorkMode = SYNC_DECODE_MODE;
-            CAMHAL_LOGW("default format not support, set yuyv %dx%d, decoder work mode %d",
-                width, height, mHWDecoderWorkMode);
-            break;
-        }
         ret = getOutputFormat(width, height, V4L2_PIX_FMT_NV21);
         if (ret) {
             pixelformat = ret;
             mHWDecoderWorkMode = SYNC_DECODE_MODE;
             CAMHAL_LOGW("default format not support, set nv21 %dx%d, decoder work mode %d",
+                width, height, mHWDecoderWorkMode);
+            break;
+        }
+        ret = getOutputFormat(width, height, V4L2_PIX_FMT_YUYV);
+        if (ret) {
+            pixelformat = ret;
+            mHWDecoderWorkMode = SYNC_DECODE_MODE;
+            CAMHAL_LOGW("default format not support, set yuyv %dx%d, decoder work mode %d",
                 width, height, mHWDecoderWorkMode);
             break;
         }
@@ -618,7 +621,8 @@ status_t USBSensorHWDec::getOutputFormat(void)
 // return
 // 0 - ok or retry (if outDataAddr is null)
 // -1 - fail.
-int USBSensorHWDec::checkAndGetLatestSensorData(uint8_t **outDataAddr, uint32_t *outDataLen )
+int USBSensorHWDec::checkAndGetLatestSensorData(
+                    uint8_t **outDataAddr, uint32_t *outDataLen, int32_t *outDataFd)
 {
     *outDataLen = 0;
     *outDataAddr = NULL;
@@ -694,13 +698,16 @@ read_queue:
     mTimeOutCount = 0;
     *outDataAddr = src;
     *outDataLen = mVinfo->preview.buf.bytesused;
+    if (outDataFd)
+        *outDataFd = mVinfo->preview.buf.m.fd;
     return 0;
 }
 
 // return
 // 0 - ok or retry (if outDataAddr is null)
 // -1 - fail.
-int USBSensorHWDec::checkAndGetNextSensorData(uint8_t **outDataAddr, uint32_t *outDataLen )
+int USBSensorHWDec::checkAndGetNextSensorData(
+                    uint8_t **outDataAddr, uint32_t *outDataLen, int32_t *outDataFd)
 {
     *outDataLen = 0;
     *outDataAddr = NULL;
@@ -758,6 +765,8 @@ int USBSensorHWDec::checkAndGetNextSensorData(uint8_t **outDataAddr, uint32_t *o
     mTimeOutCount = 0;
     *outDataAddr = src;
     *outDataLen = mVinfo->preview.buf.bytesused;
+    if (outDataFd)
+        *outDataFd = mVinfo->preview.buf.m.fd;
     return 0;
 }
 
@@ -955,6 +964,7 @@ void USBSensorHWDec::captureNV21UsbSensor(Vector<StreamBuffer>& b, uint32_t gain
     CAMHAL_LOGVV("%s: E", __FUNCTION__);
     uint8_t *src = nullptr;
     uint32_t src_len = 0;
+    int32_t  fd = -1;
     int pixelformat;
     uint32_t width;
     uint32_t height;
@@ -966,7 +976,7 @@ void USBSensorHWDec::captureNV21UsbSensor(Vector<StreamBuffer>& b, uint32_t gain
                 break;
         } else {
             int ret = 0;
-            ret = checkAndGetLatestSensorData(&src, &src_len);
+            ret = checkAndGetLatestSensorData(&src, &src_len, &fd);
             if (nullptr == src && ret == 0) {
                 CAMHAL_LOGE("%s, line %d can not get sensor data", __FUNCTION__, __LINE__);
                 continue;
@@ -1017,6 +1027,43 @@ void USBSensorHWDec::captureNV21UsbSensor(Vector<StreamBuffer>& b, uint32_t gain
                 }
                     mVinfo->putback_frame();
             } break;
+            case V4L2_PIX_FMT_NV21:
+            {
+                for (size_t i = 0; i < b.size(); i++) {
+                    if (b[i].format == HAL_PIXEL_FORMAT_BLOB) {
+                        CAMHAL_LOGE("%s:blob buffer bypass",__FUNCTION__);
+                    } else {
+#ifdef GE2D_ENABLE
+                        bool bypass = property_get_bool("vendor.camera.bypass.ge2d", true);
+                        if (fd != -1 && !bypass) {
+                            mGE2D->ge2d_keep_ration_scale(b[i].share_fd, PIXEL_FORMAT_YCbCr_420_SP_NV12,
+                                                          b[i].width, b[i].height, fd, width, height);
+                        } else if (src != nullptr) {
+                            if (width == b[i].width && height == b[i].height) {
+                                memcpy(b[i].img, src, width * height * 3 / 2);
+                            } else {
+                                mCameraUtil->ReSizeNV21(src, b[i].img, b[i].width, b[i].height, b[i].stride, width, height);
+                            }
+                        } else {
+                            CAMHAL_LOGE("%s:info missing addr:%p, fd:%d",__FUNCTION__, src, fd);
+                        }
+#else
+                        if (src != nullptr) {
+                            if (width == b[i].width && height == b[i].height) {
+                                memcpy(b[i].img, src, width * height * 3 / 2);
+                            } else {
+                                mCameraUtil->ReSizeNV21(src, b[i].img, b[i].width, b[i].height, b[i].stride, width, height);
+                            }
+                        }
+#endif
+                    }
+#ifdef GE2D_ENABLE
+                    mGE2D->doRotationAndMirror(b[i]);
+#endif
+                }
+                    mVinfo->putback_frame();
+            } break;
+
             default:
                 CAMHAL_LOGD("not support this format");
                 break;
@@ -1176,6 +1223,7 @@ void USBSensorHWDec::getStreamInfo(std::vector<streamInfo> &streamInfos) {
     uint32_t srcfmt[] = {
         V4L2_PIX_FMT_MJPEG,
         V4L2_PIX_FMT_H264,
+        V4L2_PIX_FMT_NV21,
         V4L2_PIX_FMT_YUYV,
         V4L2_PIX_FMT_HEVC,
     };
@@ -1225,6 +1273,8 @@ void USBSensorHWDec::getStreamInfo(std::vector<streamInfo> &streamInfos) {
                 if (!IsAvailablePictureSize(kUsbAvailablePictureSize, frmsize.discrete.width, frmsize.discrete.height))
                     continue;
 
+                CAMHAL_LOGI("srcfmt %d width %d height %d \n", srcfmt[j], frmsize.discrete.width, frmsize.discrete.height);
+
                 streamInfos.emplace_back(srcfmt[j], frmsize.discrete.width, frmsize.discrete.height);
             }
         }
@@ -1266,6 +1316,7 @@ int USBSensorHWDec::getStreamConfigurations(uint32_t picSizes[], const int32_t k
     uint32_t srcfmt[] = {
         V4L2_PIX_FMT_MJPEG,
         V4L2_PIX_FMT_H264,
+        V4L2_PIX_FMT_NV21,
         V4L2_PIX_FMT_YUYV,
         V4L2_PIX_FMT_HEVC,
     };
