@@ -1675,18 +1675,24 @@ int USBSensorHWDec::captureNewImage() {
                 bAux.width = b.width;
                 bAux.height = b.height;
                 bAux.format = pixelfmt;
-                bAux.stride = b.width;
+                bAux.stride = ALIGN(b.width, 32);
                 bAux.buffer = NULL;
                 bAux.img = NULL;
                 bAux.share_fd = -1;
 #ifdef GE2D_ENABLE
                 if (getOutputFormat() == V4L2_PIX_FMT_YUYV) {
-                    bAux.img = mION->alloc_buffer(b.width * b.height * 3,&bAux.share_fd, cache);
+                    bAux.img = mION->alloc_buffer(bAux.stride * bAux.height * 2, &bAux.share_fd,
+                        cache);
                 } else {
-                    bAux.img = mION->alloc_buffer(b.width * b.height * 3,&bAux.share_fd);
+                    bAux.img = mION->alloc_buffer(bAux.stride * bAux.height * 3 / 2,
+                        &bAux.share_fd);
                 }
 #else
-                bAux.img = new uint8_t[b.width * b.height * 3];
+                if (getOutputFormat() == V4L2_PIX_FMT_YUYV) {
+                    bAux.img = new uint8_t[bAux.stride * bAux.height * 2];
+                } else {
+                    bAux.img = new uint8_t[bAux.stride * bAux.height * 3 / 2];
+                }
 #endif
                 mNextCapturedBuffers->push_back(bAux);
                 isJpegRequest = true;
@@ -1851,7 +1857,7 @@ void *USBSensorHWDec::decodeFillThreadProc(void *data){
             }
         }
 
-        CAMHAL_LOGW("%d, queue input src %p size %d", sensor->mDecoderStreamType, src, src_len);
+        CAMHAL_LOGV("%d, queue input src %p size %d", sensor->mDecoderStreamType, src, src_len);
         decoder->asyncDecodeQueueInput(-1, src, src_len);
         vinfo->putback_frame();
     }

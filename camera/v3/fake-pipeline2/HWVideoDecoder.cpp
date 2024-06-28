@@ -953,7 +953,6 @@ bool HWVideoDecoderImpl::initialize(uint32_t streamType, uint32_t bitstream_widt
         // pre-allocate output buffer.
         std::lock_guard<std::mutex> lock(mOutputLock);
         preAllocOutputBufferLocked(mDefaultOutputQueueCount, bitstream_width, bitstream_height);
-
         CAMHAL_LOGI("alloc outputbuf  success ");
     }
 
@@ -1284,8 +1283,9 @@ int HWVideoDecoderImpl::queueInputBufferNoBlock(int in_fd, uint8_t* in_src, uint
 
         err = queueInputBufferInternal(buf_item->fd, buf_item->buffer, in_size);
 
-        CAMHAL_LOGD("%s %d leave, err %d  bitstreamId %" PRId64 ", obj %p, buffer %p, buffer_size %d", __FUNCTION__, __LINE__,
-                           err, mBitStreamId, buf_item, buf_item->buffer, in_size);
+        CAMHAL_LOGV("%s %d leave, err %d  bitstreamId %" PRId64 ", obj %p, buffer %p,"
+            "buffer_size %d", __FUNCTION__, __LINE__,
+                err, mBitStreamId, buf_item, buf_item->buffer, in_size);
 
         mBitStreamId++;
 
@@ -1442,7 +1442,7 @@ int HWVideoDecoderImpl::syncDecode(int in_fd, uint8_t*in_src, uint32_t in_size, 
                                         port = DEWARP_CAM2PORT_USB_PREVIEW;
                                         break;
                                 }
-                                if (beyondMargin) {
+                                if (beyondMargin && mTransitionalBuf.fd != -1) {
                                     CAMHAL_LOGD("the size %dx%d is beyond dewarp scale margin",
                                         b[i].width, b[i].height);
                                     dewarp_convert_scale(srcSize, dec_out_fd,
@@ -1570,7 +1570,7 @@ int HWVideoDecoderImpl::asyncDecodeDequeueOutput( Vector<StreamBuffer>& b, bool 
                                         port = DEWARP_CAM2PORT_USB_PREVIEW;
                                         break;
                                 }
-                                if (beyondMargin) {
+                                if (beyondMargin && mTransitionalBuf.fd != -1) {
                                     CAMHAL_LOGD("the size %dx%d is beyond dewarp scale margin",
                                         b[i].width, b[i].height);
                                     dewarp_convert_scale(srcSize, dec_out_fd,
@@ -1634,8 +1634,8 @@ int HWVideoDecoderImpl::preAllocOutputBufferLocked(uint32_t requestedNumOfBuffer
             int32_t width, uint32_t height)
 {
     int ret = 0;
-    uint8_t* vaddr;
-    int fd;
+    uint8_t* vaddr = NULL;
+    int fd = -1;
     mOutputBufferNum = requestedNumOfBuffers;
     mDqWidth = ALIGN(width, 64);
     mDqHeight = ALIGN(height, 64);
@@ -1643,16 +1643,18 @@ int HWVideoDecoderImpl::preAllocOutputBufferLocked(uint32_t requestedNumOfBuffer
     mFormatHeight = height;
     uint32_t imagesize = (mDqWidth * mDqHeight * 3) / 2;
     uint32_t transitionalImageSize = (mTransitionalSize.width * mTransitionalSize.height * 3) / 2;
-    vaddr = mION->alloc_buffer(transitionalImageSize, &fd);
-    if (!vaddr) {
-        mStatus = HWVideoDecoder::RUNTIME_ERROR;
-        CAMHAL_LOGE("alloc transitional buffer fail");
-        return -1;
+    if (mFormatWidth >= 3840 && mFormatHeight >= 2160) {
+        vaddr = mION->alloc_buffer(transitionalImageSize, &fd);
+        if (!vaddr) {
+            mStatus = HWVideoDecoder::RUNTIME_ERROR;
+            CAMHAL_LOGE("alloc transitional buffer fail");
+            return -1;
+        }
+        CAMHAL_LOGD("alloc transitional buffer success");
     }
     mTransitionalBuf.vaddr = vaddr;
     mTransitionalBuf.size = transitionalImageSize;
     mTransitionalBuf.fd = fd;
-    CAMHAL_LOGD("alloc transitional buffer success");
 
     mOutputBufs.resize(mOutputBufferNum);
 
@@ -1722,7 +1724,8 @@ int HWVideoDecoderImpl::queueOutputBuffersLocked()
                     CAMHAL_LOGI(" createOutputBuffer index %d, pictureid %d, fd %d success", ii, mOutputBufs[ii].pictureId, mOutputBufs[ii].fd);
                 } else {
                     // exit on create fail.
-                    CAMHAL_LOGE("createOutputBuffer fail, with pictureid %d, fd %d",  mOutputBufs[ii].pictureId, mOutputBufs[ii].fd);
+                    CAMHAL_LOGE("create OutputBuffer fail, with pictureid %d, fd %d",
+                        mOutputBufs[ii].pictureId, mOutputBufs[ii].fd);
                     ret = -1;
                     break;
                 }
@@ -1763,11 +1766,10 @@ int HWVideoDecoderImpl::reconfigOutputBuffersLocked(uint32_t requestedMinNumOfBu
         CAMHAL_LOGI("success allocated output buffers.");
         return 0;
     }
-
+    int hasOutputBufCount = mOutputBufs.size();
     // here size matched. requested min buf count bigger than pre-allocated.
     if (requestedMinNumOfBuffers_t > mOutputBufs.size()) {
         // need more_output_buffer
-        int hasOutputBufCount = mOutputBufs.size();
         int appendOutputBufCount = requestedMinNumOfBuffers_t - hasOutputBufCount;
         mOutputBufferNum = requestedMinNumOfBuffers_t;
 
@@ -1823,8 +1825,24 @@ int HWVideoDecoderImpl::reconfigOutputBuffersLocked(uint32_t requestedMinNumOfBu
 
             CAMHAL_LOGD("alloc output Buffer idx %d, fd %d, size = %d, vaddr 0x%p \n", i, fd, imagesize, vaddr);
         }
-    } else {
-        CAMHAL_LOGI("use pre allocated output buffers.");
+    } else if (requestedMinNumOfBuffers_t < mOutputBufs.size()) {
+        CAMHAL_LOGI("free extra pre allocated output buffers.");
+        // free extra_output_buffer
+        int extraOutputBufCount =  hasOutputBufCount - requestedMinNumOfBuffers_t;
+        mOutputBufferNum = requestedMinNumOfBuffers_t;
+        std::vector<struct mapInfo>::iterator it = mOutputBufs.end();
+        for (int ii = 0; ii < extraOutputBufCount; ii ++) {
+            it = it - 1;
+            if (it->fd > 0) {
+                mION->free_buffer(it->fd);
+                it->fd = -1;
+                it->vaddr = 0;
+                it->size = 0;
+                CAMHAL_LOGV("ii %d, picture id %d fd %d", ii, it->pictureId, it->fd);
+                mOutputBufs.erase(it);
+            }
+        }
+        CAMHAL_LOGV("alloc output buffer size %zu", mOutputBufs.size());
     }
 
     return 0;
@@ -1838,7 +1856,6 @@ void HWVideoDecoderImpl::onOutputFormatChanged(uint32_t requestedNumOfBuffers,
                 requestedNumOfBuffers,
                 width,
                 height);
-
     mStatus = HWVideoDecoder::OUTPUT_FORMAT_CHANGED;
 
     std::lock_guard<std::mutex> lock(mOutputLock);
@@ -1869,8 +1886,9 @@ void HWVideoDecoderImpl::onOutputBufferDone(int32_t outBufferIdx, int64_t bitstr
         uint32_t width, uint32_t height)
 {
 
-    CAMHAL_LOGD("onOutputBufferDone this %p, outBufferIdx %d, bitstreamId %" PRId64 ", output done %d\n",
-                        this, outBufferIdx, bitstreamId, mOutputDoneCount);
+    CAMHAL_LOGV("onOutputBufferDone this %p, outBufferIdx %d,"
+        "bitstreamId %" PRId64 ", output done %d\n",
+            this, outBufferIdx, bitstreamId, mOutputDoneCount);
 
     mStatus = HWVideoDecoder::OUTPUT_BUFFER_DONE;
 
@@ -1911,7 +1929,8 @@ void HWVideoDecoderImpl::onInputBufferDone(int32_t bitstreamId)
     if (mInputBuffer.size() > 0) {
 
         buffer_item_t* item = (buffer_item_t*)mInputBuffer[bitstreamId];
-        CAMHAL_LOGD("%s line %d, bitstreamId:%d, obj %p, buffer  %p, input done %d\n", __FUNCTION__, __LINE__, bitstreamId, item, item->buffer, mInputDoneCount);
+        CAMHAL_LOGV("%s line %d, bitstreamId:%d, obj %p, buffer  %p, input done %d\n",
+            __FUNCTION__, __LINE__, bitstreamId, item, item->buffer, mInputDoneCount);
         release_input_buffer(item);
 
         mInputBuffer.erase(bitstreamId);
