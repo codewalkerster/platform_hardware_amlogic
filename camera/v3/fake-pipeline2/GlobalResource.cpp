@@ -11,14 +11,10 @@ GlobalResource* GlobalResource::mInstance = nullptr;
 Mutex GlobalResource::mLock;
 
 GlobalResource* GlobalResource::getInstance() {
-     if (mInstance) {
-        return mInstance;
-     } else {
-        Mutex::Autolock lock(&mLock);
-        if (mInstance == nullptr)
-            mInstance = new GlobalResource();
-        return mInstance;
-     }
+    Mutex::Autolock lock(&mLock);
+    if (!mInstance)
+        mInstance = new GlobalResource();
+    return mInstance;
  }
 
  void GlobalResource::DeleteInstance() {

@@ -1243,7 +1243,7 @@ bool OMXDecoder::OMXWaitForVSync(nsecs_t reltime) {
     //ATRACE_CALL();
     int res;
     Mutex::Autolock lock(mOMXControlMutex);
-    if (false == hasReadyOutputBuffer()) {
+    while (false == hasReadyOutputBuffer()) {
         res = mOMXVSync.waitRelative(mOMXControlMutex, reltime);
         if (res != OK) {
             CAMHAL_LOGE("%s: Error waiting for VSync signal: %d", __FUNCTION__, res);
