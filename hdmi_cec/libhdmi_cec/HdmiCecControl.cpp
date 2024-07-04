@@ -108,6 +108,17 @@ void HdmiCecControl::MsgHandler::handleMessage (CMessage &msg)
             mControl->send(&message);
             break;
         }
+        case HdmiCecControl::MsgHandler::MSG_SEND_FEATURE_ABORT: {
+            cec_message_t message;
+            message.initiator = (cec_logical_address_t)((msg.mpPara[0]) & 0xff);
+            message.destination = (cec_logical_address_t)((msg.mpPara[1]) & 0xff);
+            message.body[0] = CEC_MESSAGE_FEATURE_ABORT;
+            message.body[1] = msg.mpPara[2];
+            message.body[2] = msg.mpPara[3];
+            message.length = 3;
+            mControl->send(&message);
+            break;
+        }
     }
 }
 
@@ -795,6 +806,21 @@ void HdmiCecControl::messageValidateAndHandle(hdmi_cec_event_t* event)
         case CEC_MESSAGE_DEVICE_VENDOR_ID:
             mCecDevice.vendor_ids[initiator] = ((event->cec.body[1] & 0xff) << 16)
                 + ((event->cec.body[2] & 0xff) << 8) +  (event->cec.body[3] & 0xff);
+            break;
+        case CEC_MESSAGE_SET_AUDIO_VOLUME_LEVEL:
+            if (initiator != CEC_ADDR_BROADCAST && destination != CEC_ADDR_BROADCAST
+                    && event->cec.length == 1) {
+                event->eventType = 0;
+                LOGD("received message: %02x params validate fail and send feature abort", opcode);
+                msg.mType = HdmiCecControl::MsgHandler::MSG_SEND_FEATURE_ABORT;
+                msg.mDelayMs = 0;
+                msg.mpPara[0] = destination;
+                msg.mpPara[1] = initiator;
+                msg.mpPara[2] = opcode;
+                msg.mpPara[3] = 0;
+                mMsgHandler->removeMsg(msg);
+                mMsgHandler->sendMsg(msg);
+            }
             break;
         default:
             break;

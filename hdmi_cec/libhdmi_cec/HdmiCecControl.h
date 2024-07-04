@@ -100,6 +100,8 @@
 #define VENDOR_CMD_ACTIVENESS           1
 #define LANG_VENDOR_CALLBACK            "aml"
 
+#define CEC_MESSAGE_SET_AUDIO_VOLUME_LEVEL  0x73
+
 
 namespace android {
 
@@ -203,6 +205,7 @@ protected:
         static const int MSG_REPORT_PHYSICAL_ADDRESS =  8;
         static const int MSG_MAY_SEND_SET_STREAM_PATH = 9;
         static const int MSG_SET_OSD_NAME =             10;
+        static const int MSG_SEND_FEATURE_ABORT =       11;
 
         MsgHandler(HdmiCecControl *hdmiControl);
         ~MsgHandler();
