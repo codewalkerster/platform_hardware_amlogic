@@ -8,6 +8,7 @@
 #include <utils/Trace.h>
 #include <cutils/properties.h>
 #include <android/log.h>
+#include <linux/v4l2-subdev.h>
 
 #include "../EmulatedFakeCamera3.h"
 #include "Sensor.h"
@@ -61,6 +62,9 @@ HDMISensor::HDMISensor() {
 #else
     mEnableDewarp = false;
 #endif
+    if (!mHDMIStatus)
+        mHDMIStatus = HDMIStatus::getInstance();
+
 }
 HDMISensor::~HDMISensor() {
     if (mMPlaneCameraIO) {
@@ -71,6 +75,12 @@ HDMISensor::~HDMISensor() {
         delete mGE2D;
         mGE2D = NULL;
     }
+    if (mHDMIStatus) {
+        HDMIStatus::putInstance();
+        mHDMIStatus = NULL;
+    }
+    if (subdev > 0)
+        close(subdev);
 }
 
 int HDMISensor::halFormatToSensorFormat(uint32_t pixelfmt)
@@ -107,7 +117,7 @@ int HDMISensor::streamOn(channel ch) {
     if (waitStable) {
         bool retry_done = false;
         while (1) {
-            CAMHAL_LOGD("begain to steamon hdmi camera");
+            CAMHAL_LOGD("begin to steamon hdmi camera");
             if (mMPlaneCameraIO->startCameraIO() < 0) {
                 if (!retry_done) {
                     waitStable = true;
@@ -171,6 +181,7 @@ status_t HDMISensor::startUp(int idx, bool customizationSensor) {
     CAMHAL_LOGD("ddd");
 
     int res;
+    int ret = -1;
     mCapturedBuffers = NULL;
     mOpenCameraID = idx;
     res = run("EmulatedFakeCamera3::HDMISensor",
@@ -204,6 +215,32 @@ status_t HDMISensor::startUp(int idx, bool customizationSensor) {
     mMPlaneCameraIO = (MPlaneCameraIO *) calloc(1, sizeof(MPlaneCameraIO));
     mMPlaneCameraIO->openIdx = idx;
 
+    {
+        struct v4l2_subdev_format fmt;
+        struct v4l2_mbus_framefmt mbus_format;
+        memset(&mbus_format, 0, sizeof(mbus_format));
+        if (mHDMIStatus->mIsMipiSensor && mHDMIStatus->mSupportedCfg != NULL &&
+            mHDMIStatus->mSupportedCfg->subDevName != NULL) {
+            auto &cfg = mHDMIStatus->mSupportedCfg;
+            CAMHAL_LOGD("open sub dev name %s, sensor name %s, size %dx%d",
+                cfg->subDevName, cfg->sensorName, cfg->sensorWidth, cfg->sensorHeight);
+            mbus_format.width  = cfg->sensorWidth;
+            mbus_format.height = cfg->sensorHeight;
+            mbus_format.code   = MEDIA_BUS_FMT_UYVY8_2X8;
+            subdev = open(cfg->subDevName, O_RDWR);
+        }
+        if (subdev > 0) {
+            memset(&fmt, 0, sizeof(fmt));
+            fmt.pad = 0;
+            fmt.which = V4L2_SUBDEV_FORMAT_ACTIVE;
+            fmt.format = mbus_format;
+            ret = ioctl(subdev, VIDIOC_SUBDEV_S_FMT, &fmt);
+            if (ret < 0) {
+                CAMHAL_LOGE("%s: failed, ret %d\n", __func__, ret);
+            }
+            CAMHAL_LOGI("%s VIDIOC_SUBDEV_S_FMT success",  __func__);
+        }
+    }
     res = mMPlaneCameraIO->openCamera();
     if (res < 0) {
         CAMHAL_LOGE("Unable to open sensor %d, errno=%d\n", mMPlaneCameraIO->openIdx, res);
@@ -259,15 +296,19 @@ status_t HDMISensor::shutDown() {
 }
 
 bool HDMISensor::isStableSignal() {
-    bool tvin_stable = true;
-    tvin_info_s signal_info;
-    memset(&signal_info, 0, sizeof(tvin_info_s));
-    int ret = ioctl(vdin_fd, TVIN_IOC_G_SIG_INFO, &signal_info);
-    if (ret < 0) {
-        CAMHAL_LOGE("TVIN_IOC_G_SIG_INFO is not stable %d",ret);
-        tvin_stable = false;
+    bool tvin_stable = false;
+    if (!(mHDMIStatus->mIsMipiSensor)) {
+        tvin_info_s signal_info;
+        memset(&signal_info, 0, sizeof(tvin_info_s));
+        int ret = ioctl(vdin_fd, TVIN_IOC_G_SIG_INFO, &signal_info);
+        if (ret < 0) {
+            CAMHAL_LOGE("TVIN_IOC_G_SIG_INFO is not stable %d",ret);
+            tvin_stable = false;
+        } else {
+            tvin_stable = (signal_info.status == TVIN_SIG_STATUS_STABLE);
+        }
     } else {
-        tvin_stable = (signal_info.status == TVIN_SIG_STATUS_STABLE);
+        tvin_stable = true;
     }
     return tvin_stable;
 }

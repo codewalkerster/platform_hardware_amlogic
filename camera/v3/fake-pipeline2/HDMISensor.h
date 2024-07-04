@@ -9,6 +9,7 @@
 #include "dewarp.h"
 #endif
 #include "tvinType.h"
+#include "HDMIStatus.h"
 
 namespace android {
 
@@ -45,6 +46,7 @@ namespace android {
             void setSensorListener(SensorListener *listener) override;
             uint32_t getStreamUsage(aml_camera_stream_t& stream) override;
         private:
+            HDMIStatus* mHDMIStatus = NULL;
             MPlaneCameraIO* mMPlaneCameraIO;
             ge2dTransform* mGE2D = NULL;
             bool mEnableDewarp;
@@ -54,6 +56,7 @@ namespace android {
             int kernel_dma_fd = -1;
             int vdin_fd = -1;
             int hdmi_port_index;
+            int subdev = -1;
             bool successStreamOn;
             bool isStableSignal();
             void captureNV21(Vector<StreamBuffer>& b, uint32_t gain);

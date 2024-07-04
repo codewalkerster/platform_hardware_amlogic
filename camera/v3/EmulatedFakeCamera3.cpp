@@ -1882,14 +1882,6 @@ status_t EmulatedFakeCamera3::createSensor() {
         return OK;
     }
 
-    if (!strcmp(device->name, "/dev/video50")) {
-        mSensorType = SENSOR_USB;
-        CAMHAL_LOGD("CSI sensor, mCameraID=%d",mCameraID);
-        mSensor = new USBSensorHWDec(V4L2_PIX_FMT_NV21);
-        mUseHWdec = false;
-        return OK;
-    }
-
     sp<Sensor> s = new Sensor();
     status_t ret = s->startUp(mCameraID);
     if (ret != OK) {

@@ -16,18 +16,40 @@
 #include <fcntl.h>
 #include <errno.h>
 #include <utils/Mutex.h>
+#include <sys/ioctl.h>
 
 #include <log/log.h>
 #include <cutils/properties.h>
 #include <HDMIStatus.h>
 #include "EmulatedCameraFactory.h"
 
+#define NELEM(x) ((int) (sizeof(x) / sizeof((x)[0])))
 
 namespace android {
 HDMIStatus* HDMIStatus::mInstance = nullptr;
 int HDMIStatus::m_hdmi_fd = -1;
+bool HDMIStatus::mIsMipiSensor = false;
+struct csiCamConfig* HDMIStatus::mSupportedCfg = nullptr;
 
-HDMIStatus::HDMIStatus() {
+struct csiCamConfig ov5640Cfg = {
+    .sensorWidth      = 1920,
+    .sensorHeight     = 1080,
+    .sensorName       = "ov5640",
+    .subDevName       = nullptr,
+};
+
+char subdevName[][64] = {
+    "/dev/v4l-subdev0",
+    "/dev/v4l-subdev1",
+    "/dev/v4l-subdev2",
+    "/dev/v4l-subdev3",
+};
+
+struct csiCamConfig *supportedCfgs[] = {
+    &ov5640Cfg,
+};
+
+HDMIStatus::HDMIStatus()     {
     m_hdmi_fd = open(HDMI_DETECT_PATH, O_RDWR);
     if (m_hdmi_fd < 0 )
         CAMHAL_LOGW("open file(%s) fail: %s", HDMI_DETECT_PATH, strerror(errno));
@@ -78,12 +100,47 @@ plug_status_e HDMIStatus::getHdmiStatus() {
     return readHdmiStatus() > 0 ? HDMI_PLUG_IN : HDMI_PLUG_OUT;
 }
 
+bool HDMIStatus::isStandardMipiCamera() {
+    int fd = -1;
+    int i, j;
+    char readSensorName[64] = {0};
+    mIsMipiSensor = false;
+    for (i = 0; i < NELEM(subdevName); i++) {
+        CAMHAL_LOGD("open dev name %s", subdevName[i]);
+        fd = open(subdevName[i], O_RDWR);
+        if (fd > 0) {
+            int ret = ioctl(fd, SOC_SENSOR_GET_SENSOR_NAME, readSensorName);
+            if (ret < 0) {
+                CAMHAL_LOGE("get sensor name fail, errno=%s", strerror(errno));
+                close(fd);
+            } else {
+                close(fd);
+                CAMHAL_LOGD("get sensor name %s", readSensorName);
+                for (j = 0; j < ARRAY_SIZE(supportedCfgs); j++) {
+                    if (strstr(readSensorName, supportedCfgs[j]->sensorName)) {
+                        mIsMipiSensor = true;
+                        mSupportedCfg = supportedCfgs[j];
+                        mSupportedCfg->subDevName = subdevName[i];
+                        return true;
+                    }
+                }
+            }
+        }
+    }
+    return false;
+}
+
 bool HDMIStatus::isStandardHDMICamera() {
-    char property[PROPERTY_VALUE_MAX];
-    property_get("vendor.media.hdmi.vdin.enable", property, "false");
-    if (strstr(property, "false"))
-        return false;
-    return (getHdmiStatus() == HDMI_PLUG_IN);
+    if (isStandardMipiCamera()) {
+        CAMHAL_LOGD("is mipi camera");
+        return true;
+    } else {
+        char property[PROPERTY_VALUE_MAX];
+        property_get("vendor.media.hdmi.vdin.enable", property, "false");
+        if (strstr(property, "false"))
+            return false;
+        return (getHdmiStatus() == HDMI_PLUG_IN);
+    }
 }
 
 int HDMIStatus::getHdmiPlugStatus(int old_status, int new_status, int port) {

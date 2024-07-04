@@ -14,11 +14,21 @@
 #include <utils/Thread.h>
 #include <sys/epoll.h>
 
+#define CUSTOM_IOCTL_MAGIC 'V'
+#define SOC_SENSOR_GET_SENSOR_NAME _IOR(CUSTOM_IOCTL_MAGIC, 102, char[64])
+
 namespace android {
 
 static const char *HDMI_DETECT_PATH = "/dev/hdmirx0";
 static const char *HDMI_VDIN_VIDEO_PATH = "/dev/video70";
 static const int DETECT_BITS[] = {0x01, 0x02, 0x04};
+
+struct csiCamConfig {
+    int sensorWidth;// max width
+    int sensorHeight;// max height
+    const char* sensorName;
+    const char* subDevName;
+};
 
 typedef enum plug_status {
     HDMI_PLUG_OUT = 0,
@@ -34,12 +44,16 @@ private:
 public:
     static int readHdmiStatus();
     static bool isStandardHDMICamera();
+    static bool isStandardMipiCamera();
     static int getHdmiPlugStatus(int old_status, int new_status, int port);
     static HDMIStatus* getInstance();
     static void putInstance();
     int getHdmiFd();
 private:
     static plug_status_e getHdmiStatus();
+public:
+    static bool mIsMipiSensor;
+    static struct csiCamConfig* mSupportedCfg;
 };
 
 class HDMIHotplugThread : public Thread {
