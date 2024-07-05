@@ -614,6 +614,10 @@ static void patch_construction(sbr_info *sbr)
         uint8_t j = k + 1;
 
         do {
+            /*
+             * Describe the reason for the coverity ignore.
+             */
+            /* coverity[overflow_const] */
             j--;
 
             sb = sbr->f_master[j];

@@ -379,6 +379,10 @@ uint8_t master_frequency_table(sbr_info *sbr, uint8_t k0, uint8_t k2,
     }
 
     nrBand0 = (uint8_t)(2 * find_bands(0, bands, k0, k1));
+    /*
+     * Describe the reason for the coverity ignore.
+     */
+    /* coverity[overflow_assign] */
     nrBand0 = min(nrBand0, 63);
     if (nrBand0 <= 0) {
         return 1;
@@ -406,6 +410,11 @@ uint8_t master_frequency_table(sbr_info *sbr, uint8_t k0, uint8_t k2,
     }
 
     /* needed? */
+
+    /*
+     * Describe the reason for the coverity ignore.
+     */
+    /* coverity[overflow_sink] */
     qsort(vDk0, nrBand0, sizeof(vDk0[0]), longcmp);
 
     vk0[0] = k0;
@@ -529,6 +538,10 @@ uint8_t derived_frequency_table(sbr_info *sbr, uint8_t bs_xover_band,
         } else {
             i = (uint8_t)(2 * k - minus);
         }
+        /*
+         * Describe the reason for the coverity ignore.
+         */
+        /* coverity[deref_overflow] */
         sbr->f_table_res[LO_RES][k] = sbr->f_table_res[HI_RES][i];
     }
 
