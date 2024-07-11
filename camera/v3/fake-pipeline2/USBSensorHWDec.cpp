@@ -1680,7 +1680,7 @@ int USBSensorHWDec::captureNewImage() {
                         cache, getDataSpace());
                 } else {
                     bAux.img = mION->alloc_buffer(bAux.stride * bAux.height * 3 / 2,
-                        &bAux.share_fd, noncache, getDataSpace());
+                        &bAux.share_fd, cache, getDataSpace());
                 }
 #else
                 if (getOutputFormat() == V4L2_PIX_FMT_YUYV) {
