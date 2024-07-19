@@ -763,14 +763,18 @@ HWVideoDecoderImpl::HWVideoDecoderImpl(HWVideoDecoder * interfaceObj)
     .subtitleFlg = 2, .mDemuxType = 0, .dmx_dev_id = 0, .dmx_player_id = 0, .stbuf_start = 0, .stbuf_size = 0, .nDecType = 0, .nVideoRecoveryValue = 1
     };
     mVideoDecConfig = defConfig;
-
+#if defined(PREVIEW_DEWARP_ENABLE) || defined(PICTURE_DEWARP_ENABLE)
+    mEnableDewarp = true;
+#else
     mEnableDewarp = false;
+#endif
     mFlushed = false;
     mCheckMjpegWH = false;
     mWaitOutBufDurationMs = 20;
 
     mInputDumpFile = nullptr;
     mStatus = HWVideoDecoder::CONSTRUCTED;
+
     if (property_get_bool("vendor.camhal.usbsensor.use.dewarp", false)) {
         mEnableDewarp = true;
     }
@@ -1235,8 +1239,6 @@ int HWVideoDecoderImpl::queueInputBufferNoBlock(int in_fd, uint8_t* in_src, uint
 
     CAMHAL_LOGVV("%s E, fd %d, src %p, src_len %d", __FUNCTION__, in_fd, in_src, in_size);
 
-
-
     if (in_size >= INPUT_BUFFER_SIZE) {
         CAMHAL_LOGE("%s leave, src_len %d, too big. should be less than %d", __FUNCTION__, in_size, INPUT_BUFFER_SIZE);
         return -1;
@@ -1359,6 +1361,7 @@ int HWVideoDecoderImpl::dewarp_convert_scale(camSize srcSize, int src_fd, camSiz
     mPreDewarpInfo[port].o_height = dstSize.height;
     mPreDewarpInfo[port].i_width = formatSize.width;
     mPreDewarpInfo[port].i_height = formatSize.height;
+
     return 0;
 }
 #endif
@@ -1887,7 +1890,6 @@ case 3: sync mode. record latest output buffer to mReadyOutBufQueue. If there ha
 void HWVideoDecoderImpl::onOutputBufferDone(int32_t outBufferIdx, int64_t bitstreamId,
         uint32_t width, uint32_t height)
 {
-
     CAMHAL_LOGV("onOutputBufferDone this %p, outBufferIdx %d,"
         "bitstreamId %" PRId64 ", output done %d\n",
             this, outBufferIdx, bitstreamId, mOutputDoneCount);
