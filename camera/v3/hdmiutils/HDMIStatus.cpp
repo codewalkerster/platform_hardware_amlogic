@@ -108,7 +108,7 @@ bool HDMIStatus::isStandardMipiCamera() {
     for (i = 0; i < NELEM(subdevName); i++) {
         CAMHAL_LOGD("open dev name %s", subdevName[i]);
         fd = open(subdevName[i], O_RDWR);
-        if (fd > 0) {
+        if (fd >= 0) {
             int ret = ioctl(fd, SOC_SENSOR_GET_SENSOR_NAME, readSensorName);
             if (ret < 0) {
                 CAMHAL_LOGE("get sensor name fail, errno=%s", strerror(errno));
