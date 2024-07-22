@@ -119,6 +119,19 @@ void HdmiCecControl::MsgHandler::handleMessage (CMessage &msg)
             mControl->send(&message);
             break;
         }
+        case HdmiCecControl::MsgHandler::MSG_DELAY_PHYSICAL_ADDRESS:{
+            LOGI("upload delayed give physical address");
+            hdmi_cec_event_t event;
+            event.eventType = HDMI_EVENT_CEC_MESSAGE;
+            event.cec.initiator = CEC_ADDR_TV;
+            event.cec.destination = (cec_logical_address_t)mControl->mCecDevice.playback_logical_addr;
+            event.cec.length = 1;
+            event.cec.body[0] = CEC_MESSAGE_GIVE_PHYSICAL_ADDRESS;
+            if (mControl->mCecDevice.is_cec_enabled && mControl->mEventListener != nullptr) {
+                mControl->mEventListener->onEventUpdate(&event);
+            }
+            break;
+        }
     }
 }
 
@@ -681,6 +694,9 @@ void HdmiCecControl::getBootConnectStatus()
             LOGD("get port %d connected status failed, ret:%d", i, ret);
             continue;
         }
+        if (mCecDevice.is_playback) {
+            setProperty(PROPERTY_BOX_CONNECTION_STATE, connect ? "1" : "0");
+        }
         mCecDevice.cec_connect_status |= ((connect ? 1 : 0) << port);
     }
     delete [] portData;
@@ -893,6 +909,18 @@ void HdmiCecControl::messageValidateAndHandle(hdmi_cec_event_t* event)
                 LOGD("replace <Routing Change> with <Set Stream Path>");
                 break;
             #endif
+            case CEC_MESSAGE_GIVE_PHYSICAL_ADDRESS:
+                if (event->cec.initiator == CEC_ADDR_TV) {
+                    bool connected = getPropertyBoolean(PROPERTY_BOX_CONNECTION_STATE, false);
+                    if (!connected) {
+                        LOGI("Delay query physical address message for hotplug out state");
+                        event->eventType = 0;
+                        msg.mType = HdmiCecControl::MsgHandler::MSG_DELAY_PHYSICAL_ADDRESS;
+                        msg.mDelayMs = 1000;
+                        mMsgHandler->sendMsg(msg);
+                    }
+                }
+                break;
             case CEC_MESSAGE_SET_MENU_LANGUAGE:
                 handleSetMenuLanguage(event);
                 break;
@@ -1086,6 +1114,9 @@ void HdmiCecControl::checkConnectStatus()
             bool isWake = getPropertyBoolean(PROPERTY_POWER_STATE, true);
             LOGI("Hotplug event port:%x, now:%x, prevStatus:%x power:%d",
                     mCecDevice.port_data[i].port_id, connect, prevStatus, isWake);
+            if (mCecDevice.is_playback) {
+                setProperty(PROPERTY_BOX_CONNECTION_STATE, connect ? "1" : "0");
+            }
             if (mEventListener != NULL && mCecDevice.is_cec_enabled && isWake) {
                 event.eventType = HDMI_EVENT_HOT_PLUG;
                 event.hotplug.connected = connect;
@@ -1265,6 +1296,12 @@ void HdmiCecControl::updateActiveState(const cec_message_t* message, bool receiv
     int value = 0;
 
     if (received) {
+        if (!mCecDevice.is_cec_enabled) {
+            LOGI("update playback's physical address when cec is disabled");
+            uint16_t physicalAddress = INVALID_PHYSICAL_ADDRESS;
+            getPhysicalAddress(&physicalAddress);
+        }
+
         // handle received routing messages
         switch (opcode) {
             case CEC_MESSAGE_SET_STREAM_PATH:

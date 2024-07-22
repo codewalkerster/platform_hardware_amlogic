@@ -79,6 +79,7 @@
 #define PROPERTY_LOGICAL_ADDRESS        "persist.vendor.sys.cec.logicaladdress"
 #define PROPERTY_POWER_STATE            "persist.vendor.sys.cec.power_state"
 #define PROPERTY_CEC_ENABLED            "persist.vendor.sys.cec.cec_enabled"
+#define PROPERTY_BOX_CONNECTION_STATE   "vendor.sys.hdmi.connected"
 
 //#define PROPERTY_BOOT_REASON            "sys.boot.reason"
 #define PROPERTY_BOOT_REASON            "sys.boot.reason"
@@ -206,6 +207,7 @@ protected:
         static const int MSG_MAY_SEND_SET_STREAM_PATH = 9;
         static const int MSG_SET_OSD_NAME =             10;
         static const int MSG_SEND_FEATURE_ABORT =       11;
+        static const int MSG_DELAY_PHYSICAL_ADDRESS =   12;
 
         MsgHandler(HdmiCecControl *hdmiControl);
         ~MsgHandler();
