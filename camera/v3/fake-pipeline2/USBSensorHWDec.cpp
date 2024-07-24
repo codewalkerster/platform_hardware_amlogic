@@ -1201,7 +1201,7 @@ void USBSensorHWDec::getStreamInfo(std::vector<streamInfo> &streamInfos) {
     memset(property, 0, sizeof(property));
     if (property_get("vendor.media.camera_preview.maxsize", property, NULL) > 0)
     {
-        CAMHAL_LOGV("support Max Preview Size :%s", property);
+        CAMHAL_LOGI("support Max Preview Size :%s", property);
         if (sscanf(property, "%dx%d", &support_w, &support_h) != 2)
         {
             support_w = 10000;
@@ -1212,7 +1212,7 @@ void USBSensorHWDec::getStreamInfo(std::vector<streamInfo> &streamInfos) {
         support_w = atoi(CAMERA_HW_MAX_PREVIEW_WIDTH);
         support_h = atoi(CAMERA_HW_MAX_PREVIEW_HEIGHT);
 #endif
-        CAMHAL_LOGV("the configured max preview size :%dx%d", support_w, support_h);
+        CAMHAL_LOGI("the configured max preview size :%dx%d", support_w, support_h);
     }
     framerate_min = property_get_int32("vendor.camera.frame.rate.min", 20);
     uint32_t srcfmt[] = {
@@ -1237,6 +1237,8 @@ void USBSensorHWDec::getStreamInfo(std::vector<streamInfo> &streamInfos) {
                 CAMHAL_LOGV("index=%d, break\n", i);
                 break;
             }
+            CAMHAL_LOGI("ioctl result fmt %d width %d height %d \n",
+                srcfmt[j], frmsize.discrete.width, frmsize.discrete.height);
 
             if (frmsize.type == V4L2_FRMSIZE_TYPE_DISCRETE)
             { // only support this type
@@ -1292,7 +1294,7 @@ int USBSensorHWDec::getStreamConfigurations(uint32_t picSizes[], const int32_t k
     memset(property, 0, sizeof(property));
     if (property_get("vendor.media.camera_preview.maxsize", property, NULL) > 0)
     {
-        CAMHAL_LOGD("support Max Preview Size :%s", property);
+        CAMHAL_LOGI("support Max Preview Size :%s", property);
         if (sscanf(property, "%dx%d", &support_w, &support_h) != 2)
         {
             support_w = 10000;
@@ -1303,7 +1305,7 @@ int USBSensorHWDec::getStreamConfigurations(uint32_t picSizes[], const int32_t k
         support_w = atoi(CAMERA_HW_MAX_PREVIEW_WIDTH);
         support_h = atoi(CAMERA_HW_MAX_PREVIEW_HEIGHT);
 #endif
-        CAMHAL_LOGD("the configured max preview size :%dx%d", support_w, support_h);
+        CAMHAL_LOGI("the configured max preview size :%dx%d", support_w, support_h);
     }
 
     framerate_min = property_get_int32("vendor.camera.frame.rate.min", 20);
@@ -1335,6 +1337,8 @@ int USBSensorHWDec::getStreamConfigurations(uint32_t picSizes[], const int32_t k
                 CAMHAL_LOGD("index=%d, break\n", i);
                 break;
             }
+            CAMHAL_LOGI("ioctl result fmt %d width %d height %d \n",
+                srcfmt[j], frmsize.discrete.width, frmsize.discrete.height);
 
             if (frmsize.type == V4L2_FRMSIZE_TYPE_DISCRETE)
             { // only support this type

@@ -1339,7 +1339,7 @@ int HWVideoDecoderImpl::dewarp_convert_scale(camSize srcSize, int src_fd, camSiz
     if (needDestroy) {
         DeWarp::putInstance(port);
     }
-    CAMHAL_LOGD("dewarp port %d, isNeedDestroyDewarp %d", port, needDestroy);
+    CAMHAL_LOGVV("dewarp port %d, isNeedDestroyDewarp %d", port, needDestroy);
     CameraConfig* config = CameraConfig::getInstance(port);
     config->setCropInfo(inputInfo);
     config->setInputWidth(srcSize.width);
