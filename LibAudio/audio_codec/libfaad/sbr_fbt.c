@@ -581,6 +581,7 @@ uint8_t derived_frequency_table(sbr_info *sbr, uint8_t bs_xover_band,
             /* i = i + (int32_t)((sbr->N_low - i)/(sbr->N_Q + 1 - k)); */
             i = i + (sbr->N_low - i) / (sbr->N_Q + 1 - k);
         }
+        /* coverity[deref_overflow] */
         sbr->f_table_noise[k] = sbr->f_table_res[LO_RES][i];
     }
 
