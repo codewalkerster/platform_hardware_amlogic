@@ -564,7 +564,7 @@ int HdmiCecControl::sendMessage(const cec_message_t* message)
     do {
         ret = send(message);
     } while(message->length != 0
-            && (ret != HDMI_RESULT_SUCCESS)
+            && (ret == HDMI_RESULT_BUSY || ret == HDMI_RESULT_FAIL)
             && (++retry < SEND_MESSAGE_RETRY_HAL));
 
     postHandleOfSend(message, ret);
