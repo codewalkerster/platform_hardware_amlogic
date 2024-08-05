@@ -604,6 +604,7 @@ bool BootControl::MarkBootSuccessful() {
 
   LOG(INFO) << "set merge_flag none when boot successful";
   bootctrl.merge_flag = 0;
+  bootctrl.firstboot = 0;
 
   if (bootctrl.slot_info[current_slot_].successful_boot == 0) {
     if (get_sys_boot_complete() != 0) {
@@ -768,6 +769,15 @@ bool BootControl::IsSlotMarkedSuccessful(unsigned int slot) {
 
   bootloader_control bootctrl;
   if (!LoadBootloaderControl(misc_device_, &bootctrl)) return false;
+
+  std::string completed_prop = android::base::GetProperty("sys.boot_completed", "");
+
+  LOG(INFO) << "sys.boot_completed: " << completed_prop;
+  if (completed_prop == "1" && bootctrl.firstboot == 1) {
+    LOG(INFO) << "boot complete ok, set firstboot 0";
+    bootctrl.firstboot = 0;
+    UpdateAndSaveBootloaderControl(misc_device_, &bootctrl);
+  }
 
   return bootctrl.slot_info[slot].successful_boot && bootctrl.slot_info[slot].tries_remaining;
 }

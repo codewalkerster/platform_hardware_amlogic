@@ -133,7 +133,9 @@ struct bootloader_control {
     struct slot_metadata slot_info[4];
     // Reserved for further use.
     uint8_t merge_flag;
-    uint8_t reserved1[7];
+    uint8_t firstboot;
+    uint8_t boot_tries_remaining;
+    uint8_t reserved1[5];
     // CRC32 of all 28 bytes preceding this field (little endian
     // format).
     uint32_t crc32_le;
