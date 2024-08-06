@@ -471,6 +471,7 @@ void HDMISensor::captureNV21(Vector<StreamBuffer>& b, uint32_t gain) {
                         GDCObj->gdc_do_fisheye_correction();
                     }
                     index++;
+                    mGE2D->doRotationAndMirror(b[i]);
                     mPreDewarpInfo[port].o_width = b[i].width;
                     mPreDewarpInfo[port].o_height = b[i].height;
                     mPreDewarpInfo[port].i_width = width;
@@ -479,6 +480,7 @@ void HDMISensor::captureNV21(Vector<StreamBuffer>& b, uint32_t gain) {
                 }else {
                     mGE2D->ge2d_keep_ration_scale(b[i].share_fd, PIXEL_FORMAT_YCbCr_420_SP_NV12, b[i].width, b[i].height,
                                                   output_info.dma_fd, width, height, b[i].stride);
+                    mGE2D->doRotationAndMirror(b[i]);
                 }
             }
 #endif

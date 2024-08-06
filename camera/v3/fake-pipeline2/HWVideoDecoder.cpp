@@ -1591,6 +1591,7 @@ int HWVideoDecoderImpl::asyncDecodeDequeueOutput( Vector<StreamBuffer>& b, bool 
                                             formatSize, port);
                                 }
                                 index++;
+                                mGE2D->doRotationAndMirror(b[i]);
 #endif
                            }
                            ret = 0;
