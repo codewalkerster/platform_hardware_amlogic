@@ -48,6 +48,7 @@
 #include "imx577/imx577_api.h"
 #include "imx335/imx335_api.h"
 #include "ov16a1q/ov16a1q_api.h"
+#include "ov08d10/ov08d10_api.h"
 
 #define ARRAY_SIZE(array)   (sizeof(array) / sizeof((array)[0]))
 
@@ -289,6 +290,30 @@ struct sensorConfig imx577Cfg = {
     .otpDevAddr       = 0x00,
 };
 
+struct sensorConfig ov08d10Cfg = {
+    .expFunc.pfn_cmos_fps_set = cmos_fps_set_ov08d10,
+    .expFunc.pfn_cmos_get_alg_default = cmos_get_ae_default_ov08d10,
+    .expFunc.pfn_cmos_alg_update = cmos_alg_update_ov08d10,
+    .expFunc.pfn_cmos_again_calc_table = cmos_again_calc_table_ov08d10,
+    .expFunc.pfn_cmos_dgain_calc_table = cmos_dgain_calc_table_ov08d10,
+    .expFunc.pfn_cmos_inttime_calc_table = cmos_inttime_calc_table_ov08d10,
+    .cmos_set_sensor_entity = cmos_set_sensor_entity_ov08d10,
+    .cmos_get_sensor_calibration = cmos_get_sensor_calibration_ov08d10,
+    .cmos_clean_up = cmos_clean_up_ov08d10,
+
+#if defined(PREVIEW_DEWARP_ENABLE) || defined(PICTURE_DEWARP_ENABLE)
+    .cmos_get_sensor_gdc_parameter = cmos_get_sensor_gdc_parameter_ov08d10,
+#endif
+
+    .sensorWidth      = 3264,
+    .sensorHeight     = 2448,
+    .sensorName       = "ov08d10",
+    .wdrFormat        = MEDIA_BUS_FMT_SBGGR10_1X10,
+    .sdrFormat        = MEDIA_BUS_FMT_SBGGR10_1X10,
+    .type             = sensor_raw,
+    .otpDevAddr       = 0x00,
+};
+
 struct sensorConfig *supportedCfgs[] = {
     &imx335Cfg,
     &imx290Cfg,
@@ -301,6 +326,7 @@ struct sensorConfig *supportedCfgs[] = {
     &lt6911cCfg,
     &imx378Cfg,
     &imx577Cfg,
+    &ov08d10Cfg,
 };
 
 static int log2file(const char* name, const char* fmt, ...)
