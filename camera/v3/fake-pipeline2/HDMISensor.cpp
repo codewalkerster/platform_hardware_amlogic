@@ -26,8 +26,18 @@
 #endif
 
 #define ARRAY_SIZE(x) (sizeof((x))/sizeof(((x)[0])))
+#define HDMI_MAX_WIDTH 1920
+#define HDMI_MAX_HEIGHT 1080
 
 namespace android {
+
+const usb_frmsize_discrete_t kHdmiAvailablePictureSize[] = {
+        {3840, 2160},
+        {1920, 1080},
+        {1280, 720},
+        {640, 480},
+        {352, 288},
+};
 
 #if defined(PREVIEW_DEWARP_ENABLE) || defined(PICTURE_DEWARP_ENABLE)
 static bool isNeedDestroyDewarp (dewarpInfo &info_exist, dewarpInfo &info) {
@@ -64,7 +74,12 @@ HDMISensor::HDMISensor() {
 #endif
     if (!mHDMIStatus)
         mHDMIStatus = HDMIStatus::getInstance();
-
+    if (mHDMIStatus->mIsMipiSensor && mHDMIStatus->mSupportedCfg != NULL) {
+        auto &cfg = mHDMIStatus->mSupportedCfg;
+        mipi_max_width = cfg->sensorWidth;
+        mipi_max_height = cfg->sensorHeight;
+        is_mipi = true;
+    }
 }
 HDMISensor::~HDMISensor() {
     if (mMPlaneCameraIO) {
@@ -190,6 +205,7 @@ status_t HDMISensor::startUp(int idx, bool customizationSensor) {
     if (res != OK) {
         CAMHAL_LOGE("Unable to start up sensor capture thread: %d", res);
     }
+
     if (customizationSensor)
         return res;
 
@@ -224,8 +240,8 @@ status_t HDMISensor::startUp(int idx, bool customizationSensor) {
             auto &cfg = mHDMIStatus->mSupportedCfg;
             CAMHAL_LOGD("open sub dev name %s, sensor name %s, size %dx%d",
                 cfg->subDevName, cfg->sensorName, cfg->sensorWidth, cfg->sensorHeight);
-            mbus_format.width  = cfg->sensorWidth;
-            mbus_format.height = cfg->sensorHeight;
+            mbus_format.width  = mipi_max_width = cfg->sensorWidth;
+            mbus_format.height = mipi_max_height = cfg->sensorHeight;
             mbus_format.code   = MEDIA_BUS_FMT_UYVY8_2X8;
             subdev = open(cfg->subDevName, O_RDWR);
         }
@@ -315,45 +331,130 @@ bool HDMISensor::isStableSignal() {
 
 int HDMISensor::getStreamConfigurations(uint32_t picSizes[], const int32_t kAvailableFormats[], int size)
 {
+    const uint32_t length = ARRAY_SIZE(kHdmiAvailablePictureSize);
     uint32_t count = 0;
-    picSizes[count++] = HAL_PIXEL_FORMAT_IMPLEMENTATION_DEFINED;
-    picSizes[count++] = 1920;
-    picSizes[count++] = 1080;
-    picSizes[count++] = ANDROID_SCALER_AVAILABLE_STREAM_CONFIGURATIONS_OUTPUT;
-    picSizes[count++] = HAL_PIXEL_FORMAT_YCbCr_420_888;
-    picSizes[count++] = 1920;
-    picSizes[count++] = 1080;
-    picSizes[count++] = ANDROID_SCALER_AVAILABLE_STREAM_CONFIGURATIONS_OUTPUT;
-    picSizes[count++] = HAL_PIXEL_FORMAT_BLOB;
-    picSizes[count++] = 1920;
-    picSizes[count++] = 1080;
-    picSizes[count++] = ANDROID_SCALER_AVAILABLE_STREAM_CONFIGURATIONS_OUTPUT;
+    for (uint32_t i = 0; i < length; i++) {//preview
+        if (!is_mipi) {
+            if (kHdmiAvailablePictureSize[i].width > HDMI_MAX_WIDTH ||
+                kHdmiAvailablePictureSize[i].height > HDMI_MAX_HEIGHT)
+                continue;
+        } else {
+            if (mipi_max_width > 0 && mipi_max_height > 0) {
+                if (kHdmiAvailablePictureSize[i].width > mipi_max_width ||
+                    kHdmiAvailablePictureSize[i].height > mipi_max_height)
+                    continue;
+            }
+        }
+
+        picSizes[count++] = HAL_PIXEL_FORMAT_IMPLEMENTATION_DEFINED;
+        picSizes[count++] = kHdmiAvailablePictureSize[i].width;
+        picSizes[count++] = kHdmiAvailablePictureSize[i].height;
+        picSizes[count++] = ANDROID_SCALER_AVAILABLE_STREAM_CONFIGURATIONS_OUTPUT;
+    }
+    for (uint32_t i = 0; i < length; i++) { //preview
+        if (!is_mipi) {
+            if (kHdmiAvailablePictureSize[i].width > HDMI_MAX_WIDTH ||
+                kHdmiAvailablePictureSize[i].height > HDMI_MAX_HEIGHT)
+                continue;
+        } else {
+            if (mipi_max_width > 0 && mipi_max_height > 0) {
+                if (kHdmiAvailablePictureSize[i].width > mipi_max_width ||
+                    kHdmiAvailablePictureSize[i].height > mipi_max_height)
+                    continue;
+            }
+        }
+
+        picSizes[count++] = HAL_PIXEL_FORMAT_YCbCr_420_888;
+        picSizes[count++] = kHdmiAvailablePictureSize[i].width;
+        picSizes[count++] = kHdmiAvailablePictureSize[i].height;
+        picSizes[count++] = ANDROID_SCALER_AVAILABLE_STREAM_CONFIGURATIONS_OUTPUT;
+    }
+    for (uint32_t i = 0; i < length; i++) {
+        if (!is_mipi) {
+            if (kHdmiAvailablePictureSize[i].width > HDMI_MAX_WIDTH ||
+                kHdmiAvailablePictureSize[i].height > HDMI_MAX_HEIGHT)
+                continue;
+        } else {
+            if (mipi_max_width > 0 && mipi_max_height > 0) {
+                if (kHdmiAvailablePictureSize[i].width > mipi_max_width ||
+                    kHdmiAvailablePictureSize[i].height > mipi_max_height)
+                    continue;
+            }
+        }
+
+        picSizes[count++] = HAL_PIXEL_FORMAT_BLOB;
+        picSizes[count++] = kHdmiAvailablePictureSize[i].width;
+        picSizes[count++] = kHdmiAvailablePictureSize[i].height;
+        picSizes[count++] = ANDROID_SCALER_AVAILABLE_STREAM_CONFIGURATIONS_OUTPUT;
+    }
     return (int)count;
 }
 
 int HDMISensor::getStreamConfigurationDurations(uint32_t picSizes[], int64_t duration[], int size, bool flag)
 {
     uint32_t count = 0;
-    duration[count+0] = HAL_PIXEL_FORMAT_IMPLEMENTATION_DEFINED;
-    duration[count+1] = 1920;
-    duration[count+2] = 1080;
-    duration[count+3] = (int64_t)16666666L;
-    count += 4;
-    duration[count+0] = HAL_PIXEL_FORMAT_YCbCr_420_888;
-    duration[count+1] = 1920;
-    duration[count+2] = 1080;
-    duration[count+3] = (int64_t)16666666L;
-    count += 4;
-    duration[count+0] = HAL_PIXEL_FORMAT_BLOB;
-    duration[count+1] = 1920;
-    duration[count+2] = 1080;
-    duration[count+3] = (int64_t)16666666L;
-    count += 4;
+    for (uint32_t i = 0; i < ARRAY_SIZE(kHdmiAvailablePictureSize); i++) {
+            if (!is_mipi) {
+                if (kHdmiAvailablePictureSize[i].width > HDMI_MAX_WIDTH ||
+                    kHdmiAvailablePictureSize[i].height > HDMI_MAX_HEIGHT)
+                    continue;
+            } else {
+                if (mipi_max_width > 0 && mipi_max_height > 0) {
+                    if (kHdmiAvailablePictureSize[i].width > mipi_max_width ||
+                        kHdmiAvailablePictureSize[i].height > mipi_max_height)
+                        continue;
+                }
+            }
+
+            duration[count+0] = HAL_PIXEL_FORMAT_YCbCr_420_888;
+            duration[count+1] = kHdmiAvailablePictureSize[i].width;
+            duration[count+2] = kHdmiAvailablePictureSize[i].height;
+            duration[count+3] = getMinFrameDuration();
+            count += 4;
+    }
+    for (uint32_t i = 0; i < ARRAY_SIZE(kHdmiAvailablePictureSize); i++) {
+            if (!is_mipi) {
+                if (kHdmiAvailablePictureSize[i].width > HDMI_MAX_WIDTH ||
+                    kHdmiAvailablePictureSize[i].height > HDMI_MAX_HEIGHT)
+                    continue;
+            } else {
+                if (mipi_max_width > 0 && mipi_max_height > 0) {
+                    if (kHdmiAvailablePictureSize[i].width > mipi_max_width ||
+                        kHdmiAvailablePictureSize[i].height > mipi_max_height)
+                        continue;
+                }
+            }
+
+            duration[count+0] = HAL_PIXEL_FORMAT_IMPLEMENTATION_DEFINED;
+            duration[count+1] = kHdmiAvailablePictureSize[i].width;
+            duration[count+2] = kHdmiAvailablePictureSize[i].height;
+            duration[count+3] = getMinFrameDuration();
+            count += 4;
+    }
+    for (uint32_t i = 0; i < ARRAY_SIZE(kHdmiAvailablePictureSize); i++) {
+            if (!is_mipi) {
+                if (kHdmiAvailablePictureSize[i].width > HDMI_MAX_WIDTH ||
+                    kHdmiAvailablePictureSize[i].height > HDMI_MAX_HEIGHT)
+                    continue;
+            } else {
+                if (mipi_max_width > 0 && mipi_max_height > 0) {
+                    if (kHdmiAvailablePictureSize[i].width > mipi_max_width ||
+                        kHdmiAvailablePictureSize[i].height > mipi_max_height)
+                        continue;
+                }
+            }
+
+            duration[count+0] = HAL_PIXEL_FORMAT_BLOB;
+            duration[count+1] = kHdmiAvailablePictureSize[i].width;
+            duration[count+2] = kHdmiAvailablePictureSize[i].height;
+            duration[count+3] = getMinFrameDuration();
+            count += 4;
+    }
     return (int)count;
 }
 
 int64_t HDMISensor::getMinFrameDuration() {
-    int64_t minFrameDuration =  1000000000L/60L ; // 30fps
+    int64_t minFrameDuration =  1000000000L/30L ; // 30fps
     CAMHAL_LOGW("%s to be implemented, minframeduration  %" PRId64 "\n", __func__, minFrameDuration);
     return minFrameDuration;
 }
@@ -362,8 +463,8 @@ status_t HDMISensor::setOutputFormat(int width, int height, int pixelformat, cha
     int res = OK;
 
     mMPlaneCameraIO->format.type = V4L2_BUF_TYPE_VIDEO_CAPTURE_MPLANE;
-    mMPlaneCameraIO->format.fmt.pix_mp.width       = width;
-    mMPlaneCameraIO->format.fmt.pix_mp.height      = height;
+    mMPlaneCameraIO->format.fmt.pix_mp.width       = mipi_max_width > 0 ? mipi_max_width : HDMI_MAX_WIDTH ;
+    mMPlaneCameraIO->format.fmt.pix_mp.height      = mipi_max_height > 0 ? mipi_max_height : HDMI_MAX_HEIGHT;
     mMPlaneCameraIO->format.fmt.pix_mp.pixelformat = pixelformat;
     mMPlaneCameraIO->format.fmt.pix_mp.field       = V4L2_FIELD_ANY;
     mMPlaneCameraIO->format.fmt.pix_mp.num_planes  = 1;

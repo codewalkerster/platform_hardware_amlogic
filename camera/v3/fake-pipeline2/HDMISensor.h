@@ -58,6 +58,9 @@ namespace android {
             int hdmi_port_index;
             int subdev = -1;
             bool successStreamOn;
+            int mipi_max_width;
+            int mipi_max_height;
+            bool is_mipi;
             bool isStableSignal();
             void captureNV21(Vector<StreamBuffer>& b, uint32_t gain);
         protected:
