@@ -73,7 +73,8 @@ int mediaStreamInit(media_stream_t *stream, struct media_device * dev)
         } else if (strstr(ent->info.name, "imx")
                 || strstr(ent->info.name, "ov")
                 || strstr(ent->info.name, "os")
-                || strstr(ent->info.name, "lt")) {
+                || strstr(ent->info.name, "lt")
+                || strstr(ent->info.name, "hi")) {
             sprintf(stream->sensor_ent_name, "%s", ent->info.name);
         } else if (strstr(ent->info.name, "dw")) {
             sprintf(stream->lens_ent_name, "%s", ent->info.name);

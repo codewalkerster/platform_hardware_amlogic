@@ -49,6 +49,7 @@
 #include "imx335/imx335_api.h"
 #include "ov16a1q/ov16a1q_api.h"
 #include "ov08d10/ov08d10_api.h"
+#include "hi556/hi556_api.h"
 
 #define ARRAY_SIZE(array)   (sizeof(array) / sizeof((array)[0]))
 
@@ -314,6 +315,30 @@ struct sensorConfig ov08d10Cfg = {
     .otpDevAddr       = 0x00,
 };
 
+struct sensorConfig hi556Cfg = {
+    .expFunc.pfn_cmos_fps_set = cmos_fps_set_hi556,
+    .expFunc.pfn_cmos_get_alg_default = cmos_get_ae_default_hi556,
+    .expFunc.pfn_cmos_alg_update = cmos_alg_update_hi556,
+    .expFunc.pfn_cmos_again_calc_table = cmos_again_calc_table_hi556,
+    .expFunc.pfn_cmos_dgain_calc_table = cmos_dgain_calc_table_hi556,
+    .expFunc.pfn_cmos_inttime_calc_table = cmos_inttime_calc_table_hi556,
+    .cmos_set_sensor_entity = cmos_set_sensor_entity_hi556,
+    .cmos_get_sensor_calibration = cmos_get_sensor_calibration_hi556,
+    .cmos_clean_up = cmos_clean_up_hi556,
+
+#if defined(PREVIEW_DEWARP_ENABLE) || defined(PICTURE_DEWARP_ENABLE)
+    .cmos_get_sensor_gdc_parameter = cmos_get_sensor_gdc_parameter_hi556,
+#endif
+
+    .sensorWidth      = 2592,
+    .sensorHeight     = 1944,
+    .sensorName       = "hi556",
+    .wdrFormat        = MEDIA_BUS_FMT_SGBRG10_1X10,
+    .sdrFormat        = MEDIA_BUS_FMT_SGBRG10_1X10,
+    .type             = sensor_raw,
+    .otpDevAddr       = 0x00,
+};
+
 struct sensorConfig *supportedCfgs[] = {
     &imx335Cfg,
     &imx290Cfg,
@@ -327,6 +352,7 @@ struct sensorConfig *supportedCfgs[] = {
     &imx378Cfg,
     &imx577Cfg,
     &ov08d10Cfg,
+    &hi556Cfg,
 };
 
 static int log2file(const char* name, const char* fmt, ...)

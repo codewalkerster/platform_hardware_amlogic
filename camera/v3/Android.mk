@@ -278,6 +278,7 @@ LOCAL_SRC_FILES += \
     fake-pipeline2/ispMgr/lens/lens_config.cpp \
     fake-pipeline2/ispMgr/lens/dw9800w/dw9800w_config.cpp \
     fake-pipeline2/ispMgr/sensor/ov08d10/ov08d10_config.cpp \
+    fake-pipeline2/ispMgr/sensor/hi556/hi556_config.cpp \
 
 ifeq ($(GE2D_ENABLE),true)
 LOCAL_SRC_FILES += fake-pipeline2/ge2d_stream.cpp \
