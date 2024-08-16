@@ -6,6 +6,7 @@
 #include <errno.h>
 #include <cutils/properties.h>
 #include "MPlaneCameraIO.h"
+#include <poll.h>
 
 namespace android {
 
@@ -216,7 +217,30 @@ int MPlaneCameraIO::setOutputFormat() {
 }
 
 int MPlaneCameraIO::getFrame(VideoInfo& info) {
-    ATRACE_CALL();
+    if (fd < 0) {
+        CAMHAL_LOGE("camera not be init!");
+        return -1;
+    }
+    /* poll variables */
+    int pollret = 0,poll_retry_counter = 0;
+    const int POLL_TIMEOUT = 100;//
+    const int POLL_TRY_TIMES = 20;//max poll time = POLL_TIMEOUT * POLL_TRY_TIMES
+    struct pollfd pfds[1];
+
+read_queue:
+    pfds[0].fd = fd;
+    pfds[0].events = POLLIN;
+    pfds[0].revents = 0;
+    while (pollret == 0 && isStreaming == true
+            && poll_retry_counter < POLL_TRY_TIMES) {
+        pollret = poll(pfds, 1, POLL_TIMEOUT);
+        poll_retry_counter ++;
+    }
+    if (pollret <= 0) {
+        CAMHAL_LOGE("%s Error: poll preview error %d poll_retry_counter:%d\n",__func__,pollret,poll_retry_counter);
+        return -1;
+    }
+
     struct v4l2_plane planes[4];
     CLEAR(buf);
     memset(planes, 0, sizeof(planes));
@@ -232,18 +256,35 @@ int MPlaneCameraIO::getFrame(VideoInfo& info) {
                 return -1;
 
             case EIO:
+            /* Could ignore EIO, see spec. */
+
+            /* fall through */
+
             default:
+                CAMHAL_LOGE("VIDIOC_DQBUF failed, %s\n", strerror(errno));
                 if (errno == ENODEV) {
-                    CAMHAL_LOGE("camera HDMISensor device is not exist!");
+                    CAMHAL_LOGE("camera device is not exist!");
                     set_device_status();
                     stopCameraIO();
                     close(fd);
                     fd = -1;
                 }
-                CAMHAL_LOGD("VIDIOC_DQBUF failed, errno=%d\n", errno);
                 return -1;
         }
     }
+    // Do not allow frames to back up at the driver/sensor.
+    // The sensor will almost always supply frames as fast as we can handle them.
+    pfds[0].fd = fd;
+    pfds[0].events = POLLIN;
+    pfds[0].revents = 0;
+    if (poll(pfds, 1, 0) > 0) {
+        if (ioctl(fd, VIDIOC_QBUF, &buf)) {
+            CAMHAL_LOGE("%s: VIDIOC_QBUF/flush failed, errno=%d\n", __func__, errno);
+            return -1;
+        }
+        goto read_queue;
+    }
+
     info.addr = addr[buf.index];
     info.dma_fd = dma_fd[buf.index];
     info.buf_idx = buf.index;
