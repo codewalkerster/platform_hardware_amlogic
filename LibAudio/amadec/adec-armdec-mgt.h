@@ -38,6 +38,7 @@ typedef struct _audio_info {
     unsigned int error_num; // decode error frames
     unsigned int drop_num; // drop frames
     unsigned int decode_num; //decode success frames
+    uint8_t dual_mono_supported;
 } AudioInfo;
 
 /* audio decoder operation*/

@@ -406,6 +406,7 @@ void raw_data_block(NeAACDecStruct *hDecoder, NeAACDecFrameInfo *hInfo,
     hDecoder->fr_ch_ele = 0;
     hDecoder->first_syn_ele = 25;
     hDecoder->has_lfe = 0;
+    int sce_count = 0;
 
 #ifdef ERROR_RESILIENCE
     if (hDecoder->object_type < ER_OBJECT_START) {
@@ -413,6 +414,16 @@ void raw_data_block(NeAACDecStruct *hDecoder, NeAACDecFrameInfo *hInfo,
         /* Table 4.4.3: raw_data_block() */
         while ((id_syn_ele = (uint8_t)faad_getbits(ld, LEN_SE_ID
                              DEBUGVAR(1, 4, "NeAACDecDecode(): id_syn_ele"))) != ID_END) {
+            //audio_codec_print("id_syn_ele %d hDecoder->channelConfiguration %d",id_syn_ele, hDecoder->channelConfiguration);
+            if (hDecoder->channelConfiguration == 0) {
+                if (ID_SCE == id_syn_ele) {
+                    sce_count++;
+                } else {
+                    if (ID_CPE == id_syn_ele) {
+                        sce_count = 0;
+                    }
+                }
+            }
             switch (id_syn_ele) {
             case ID_SCE:
                 ele_this_frame++;
@@ -575,7 +586,19 @@ void raw_data_block(NeAACDecStruct *hDecoder, NeAACDecFrameInfo *hInfo,
     {
         faad_byte_align(ld);
     }
+    /*Coding mode other than AAC default provision
+    |Coding mode       |channel_configuration  |   SE configuration        |   Default element to speaker mapping |
+    |                  |(adts_fixed_header)    |  (order of transmission)  |
+    | 2-audio signals  |                       |
+    |(1/0+1/0)         |      0                |  <SCE1><SCE2><TERM>       |   SCE1 = Main,SCE2 = Subordinate    |
+    */
 
+    if (sce_count == 2 ) {
+        hDecoder->dual_mono_supported = 1;
+    } else {
+        hDecoder->dual_mono_supported = 0;
+    }
+    //audio_codec_print("sce_count %d hDecoder->dual_mono_supported %d",sce_count, hDecoder->dual_mono_supported);
     return;
 }
 
@@ -2086,20 +2109,10 @@ static uint16_t extension_payload(bitfile *ld, drc_info *drc, uint16_t count)
                              DEBUGVAR(1, 87, "extension_payload(): extension_type"));
 
     switch (extension_type) {
-
-    /*
-     * Describe the reason for the coverity ignore.
-     */
-    /* coverity[event_tag:unterminated_case] */
     case EXT_DYNAMIC_RANGE:
         drc->present = 1;
         n = dynamic_range_info(ld, drc);
         return n;
-
-    /*
-     * Describe the reason for the coverity ignore.
-     */
-    /* coverity[event_tag:unterminated_case] */
     case EXT_FILL_DATA:
         /* fill_nibble = */
         faad_getbits(ld, 4
@@ -2117,11 +2130,6 @@ static uint16_t extension_payload(bitfile *ld, drc_info *drc, uint16_t count)
         data_element_version = (uint8_t)faad_getbits(ld, 4
                                DEBUGVAR(1, 400, "extension_payload(): data_element_version"));
         switch (data_element_version) {
-
-        /*
-         * Describe the reason for the coverity ignore.
-         */
-        /* coverity[event_tag:unterminated_case] */
         case ANC_DATA:
             loopCounter = 0;
             dataElementLength = 0;
@@ -2139,12 +2147,7 @@ static uint16_t extension_payload(bitfile *ld, drc_info *drc, uint16_t count)
             }
         default:
             align = 0;
-            break;
         }
-    /*
-     * Describe the reason for the coverity ignore.
-     */
-    /* coverity[event_tag:unterminated_case] */
     case EXT_FIL:
     default:
         faad_getbits(ld, align

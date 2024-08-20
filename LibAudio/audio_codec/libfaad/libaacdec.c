@@ -341,7 +341,7 @@ static int audio_decoder_init(
     {
         int latmheader_detected = 0,adtsheader_detected = 0;
         int nSeekNum = AACFindLATMSyncWord((unsigned char *)in_buf, inbuf_size);
-        if (nSeekNum == (inbuf_size - 2)) {
+        if (nSeekNum == (inbuf_size - 1)) {
               audio_codec_print("%d bytes data not found latm sync header \n", nSeekNum);
 
         } else {
@@ -642,8 +642,13 @@ int audio_dec_getinfo(audio_decoder_operations_t *adec_ops, void *pAudioInfo)
     FaadContext *gFaadCxt = (FaadContext*)adec_ops->pdecoder;
     if (gFaadCxt) {
         NeAACDecStruct* hDecoder = (NeAACDecStruct*)gFaadCxt->hDecoder;
-        if (hDecoder)
+        if (hDecoder) {
             adec_ops->NchOriginal = hDecoder->fr_channels;
+            ((AudioInfo *)pAudioInfo)->dual_mono_supported = hDecoder->dual_mono_supported;
+            if (hDecoder->sbr_present_flag != -1) {
+                ((AudioInfo *)pAudioInfo)->file_profile =  hDecoder->sbr_present_flag;
+            }
+        }
         ((AudioInfo *)pAudioInfo)->channels = gFaadCxt->gChannels;
         ((AudioInfo *)pAudioInfo)->samplerate = gFaadCxt->gSampleRate;
         ((AudioInfo *)pAudioInfo)->error_num = gFaadCxt->error_num;

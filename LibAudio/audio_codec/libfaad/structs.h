@@ -393,6 +393,14 @@ extern "C" {
     } decoder_sys_t;
 
 #endif
+
+    typedef struct dmx_info_s {
+        int           b_dvb_dmx_coef_center_present;
+        unsigned int  dvb_dmx_coef_center;
+        int           b_dvb_dmx_coef_surround_present;
+        unsigned int  dvb_dmx_coef_surround;
+    } dmx_info_t;
+
     typedef struct {
         uint8_t adts_header_present;
         uint8_t adif_header_present;
@@ -509,6 +517,8 @@ extern "C" {
         short  dec_buffer[DEC_BUF_SIZE];
         short output_buffer[OUT_BUF_SIZE];
         unsigned char temp_buffer[TMP_BUF_SIZE];
+        dmx_info_t dmx_info;
+		uint8_t dual_mono_supported;
     } NeAACDecStruct;
 
 

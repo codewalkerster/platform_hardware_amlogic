@@ -137,11 +137,9 @@ uint8_t rvlc_decode_scale_factors(ic_stream *ics, bitfile *ld)
     uint8_t *rvlc_sf_buffer = NULL;
     uint8_t *rvlc_esc_buffer = NULL;
 
-    /*
-     * Describe the reason for the coverity ignore.
-    */
-    /* coverity[uninit_use_in_call] */
-    bitfile ld_rvlc_sf = {0,0,0,0,0,0,0,0,NULL}, ld_rvlc_esc = {0,0,0,0,0,0,0,0,NULL};
+    bitfile ld_rvlc_sf, ld_rvlc_esc;
+    memset (&ld_rvlc_sf,0,sizeof(ld_rvlc_sf));
+    memset (&ld_rvlc_esc,0,sizeof(ld_rvlc_esc));
     //    bitfile ld_rvlc_sf_rev, ld_rvlc_esc_rev;
 
     if (ics->length_of_rvlc_sf > 0) {

@@ -1028,7 +1028,7 @@ NEXT_CHECK:
         }
         /* Check if frame is valid and get frame info */
         i_frame_size = ((pbuffer[1] & 0x1f) << 8) + pbuffer[2];
-        if (i_frame_size <= 0 || i_frame_size > 8 * 768 || i_frame_size > buffer_size) {
+        if (i_frame_size <= 0 || i_frame_size > 8 * 768) {
             LATM_LOG("i_frame_size/%d  error\n",i_frame_size);
             pbuffer++;
             pbuffer_size--;
@@ -1145,7 +1145,7 @@ nonlatm_check:
                     hDecoder->last_ch_configure = adts.channel_configuration;
                 }
                 *samplerate = get_sample_rate(hDecoder->sf_index);
-                *channels = (adts.channel_configuration > 6) ?
+                *channels = (adts.channel_configuration >= 8) ?
                             2 : adts.channel_configuration;
                 *frame_size = adts.aac_frame_length;
             } else {
@@ -1176,10 +1176,10 @@ nonlatm_check:
                             hDecoder->last_ch_configure = adts.channel_configuration;
                         }
                         *samplerate = get_sample_rate(hDecoder->sf_index);
-                        if (*samplerate > 96000 || adts.channel_configuration > 6 || hDecoder->sf_index >= 12) {
+                        if (*samplerate > 96000 || adts.channel_configuration > 8 || hDecoder->sf_index >= 12) {
                             return -1;
                         }
-                        *channels = (adts.channel_configuration > 6) ? 2 : adts.channel_configuration;
+                        *channels = (adts.channel_configuration >= 8) ? 2 : adts.channel_configuration;
                         faad_log_info("[%s %d]resync adts info:FS/%lu object_type/%d chnum/%d\n", __FUNCTION__, __LINE__, *samplerate, hDecoder->object_type, (int)channels);
                         break;
                     }
@@ -1895,7 +1895,7 @@ start_decode:
             faad_endbits(&ld);
             return NULL;
         }
-        if (adts.sf_index >= 12 || adts.channel_configuration > 6) {
+        if (adts.sf_index >= 12 || adts.channel_configuration > 8) {
             audio_codec_print("adts sf/ch error,sf %d,ch config %d \n", adts.sf_index, adts.channel_configuration);
             hDecoder->sf_index = 3;
             hInfo->error = 12;
@@ -1984,12 +1984,12 @@ start_decode:
         }
     }
 
-    if ((channels == 5 || channels == 6) && hDecoder->config.downMatrix) {
+    if ((channels == 5 || channels == 6 || channels == 8) && hDecoder->config.downMatrix) {
         hDecoder->downMatrix = 1;
         output_channels = 2;
     } else {
         //      output_channels = channels;
-        if (channels == 6 || channels == 4) {
+        if (channels == 6 || channels == 4 || channels == 8) {
             output_channels = 2;
         } else if (channels == 3 && hDecoder->config.downMatrix) {
             output_channels = 2;
