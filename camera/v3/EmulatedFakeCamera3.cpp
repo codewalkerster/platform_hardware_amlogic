@@ -1529,7 +1529,8 @@ status_t EmulatedFakeCamera3::processCaptureRequest(
                      // Lock buffer for writing
                      const Rect rect(am_gralloc_get_width((native_handle_t*)(*srcBuf.buffer)),
                                 am_gralloc_get_height((native_handle_t*)(*srcBuf.buffer)));
-                     if (mSensorType == SENSOR_USB && mUseHWdec == false) {
+                     if ((mSensorType == SENSOR_USB || mSensorType == SENSOR_HDMI)
+                        && mUseHWdec == false) {
                          // Lock buffer for writing
                          const Rect rect(am_gralloc_get_width((native_handle_t*)(*srcBuf.buffer)),
                                     am_gralloc_get_height((native_handle_t*)(*srcBuf.buffer)));
@@ -1574,7 +1575,8 @@ status_t EmulatedFakeCamera3::processCaptureRequest(
               if (res != OK) {
                      // Either waiting or locking failed. Unlock locked buffers and bail
                      // out.
-                     if (mSensorType == SENSOR_USB && mUseHWdec == false) {
+                     if ((mSensorType == SENSOR_USB || mSensorType == SENSOR_HDMI)
+                        && mUseHWdec == false) {
                          for (size_t j = 0; j < i; j++) {
                                 GraphicBufferMapper::get().unlock(
                                          *(request->output_buffers[i].buffer));
@@ -3327,7 +3329,8 @@ bool EmulatedFakeCamera3::ReadoutThread::threadLoop() {
             continue;
         }
 
-        if (mParent->mSensorType == SENSOR_USB && mParent->mUseHWdec == false)
+        if ((mParent->mSensorType == SENSOR_USB || mParent->mSensorType == SENSOR_HDMI)
+            && mParent->mUseHWdec == false)
             GraphicBufferMapper::get().unlock(*(buf->buffer));
 
         buf->status = goodBuffer ? AML_CAMERA_BUFFER_STATUS_OK :

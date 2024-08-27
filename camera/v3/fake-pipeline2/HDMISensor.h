@@ -10,6 +10,7 @@
 #endif
 #include "tvinType.h"
 #include "HDMIStatus.h"
+#include "CameraUtil.h"
 
 namespace android {
 
@@ -45,6 +46,7 @@ namespace android {
             status_t setAWB(uint8_t awbMode) override;
             void setSensorListener(SensorListener *listener) override;
             uint32_t getStreamUsage(aml_camera_stream_t& stream) override;
+            bool isNeedDump() override;
         private:
             HDMIStatus* mHDMIStatus = NULL;
             MPlaneCameraIO* mMPlaneCameraIO;
@@ -61,6 +63,7 @@ namespace android {
             int mipi_max_width;
             int mipi_max_height;
             bool is_mipi;
+            CameraUtil* mDump = NULL;
             bool isStableSignal();
             void captureNV21(Vector<StreamBuffer>& b, uint32_t gain);
         protected:

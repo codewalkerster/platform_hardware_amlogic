@@ -80,6 +80,11 @@ HDMISensor::HDMISensor() {
         mipi_max_height = cfg->sensorHeight;
         is_mipi = true;
     }
+        if (property_get_bool("vendor.camhal.hdmi.dump", false)) {
+        if (nullptr == mDump) {
+            mDump = new CameraUtil();
+        }
+    }
 }
 HDMISensor::~HDMISensor() {
     if (mMPlaneCameraIO) {
@@ -96,6 +101,12 @@ HDMISensor::~HDMISensor() {
     }
     if (subdev > 0)
         close(subdev);
+    if (property_get_bool("vendor.camhal.hdmi.dump", false)) {
+        if (mDump) {
+            delete mDump;
+            mDump = NULL;
+        }
+    }
 }
 
 int HDMISensor::halFormatToSensorFormat(uint32_t pixelfmt)
@@ -109,8 +120,9 @@ uint32_t HDMISensor::getStreamUsage(aml_camera_stream_t& stream)
 {
     ATRACE_CALL();
     uint32_t usage = (GRALLOC_USAGE_HW_TEXTURE | GRALLOC_USAGE_HW_RENDER);
-    if (stream.format == HAL_PIXEL_FORMAT_BLOB)
+    if (stream.format == HAL_PIXEL_FORMAT_BLOB || this -> isNeedDump()) {
         usage = (usage | GRALLOC_USAGE_SW_READ_MASK | GRALLOC_USAGE_SW_WRITE_MASK);
+    }
     usage = GRALLOC1_PRODUCER_USAGE_CAMERA | usage;
     return usage;
 }
@@ -583,6 +595,23 @@ void HDMISensor::captureNV21(Vector<StreamBuffer>& b, uint32_t gain) {
                                                   output_info.dma_fd, width, height, b[i].stride);
                     mGE2D->doRotationAndMirror(b[i]);
                 }
+                if (property_get_bool("vendor.camhal.hdmi.dump", false)) {
+                    char dumpOutPath[256];
+                    char dumpRawPath[256];
+                    static int dumpIndex[4] = {0};
+                    if (dumpIndex[i] % 10 == 0) {
+                        memset(&dumpOutPath[0], 0, sizeof(dumpOutPath));
+                        memset(&dumpRawPath[0], 0, sizeof(dumpRawPath));
+                        snprintf(dumpOutPath, 256, "/data/vendor/camera/dst_out_%zu_%dx%d.yuv", i,
+                            b[i].width, b[i].height);
+                        snprintf(dumpRawPath, 256, "/data/vendor/camera/dst_raw_%zu_%dx%d.yuv", i,
+                            width, height);
+                        mDump -> dump((uint8_t*)output_info.addr, (width * height * 3 / 2),
+                            dumpRawPath);
+                        mDump -> dump(b[i].img, (b[i].width * b[i].height * 3 / 2), dumpOutPath);
+                    }
+                    dumpIndex[i]++;
+                }
             }
 #endif
         }
@@ -717,6 +746,12 @@ status_t HDMISensor::readyToRun() {
     return OK;
 }
 
+bool HDMISensor::isNeedDump() {
+    if (property_get_bool("vendor.camhal.hdmi.dump", false)) {
+        return true;
+    }
+    return false;
+}
 
 }
 
