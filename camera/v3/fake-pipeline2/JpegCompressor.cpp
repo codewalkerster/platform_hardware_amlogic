@@ -1099,10 +1099,26 @@ void JpegCompressor::cleanUp() {
             //size_t size = mAuxBuffer.width * mAuxBuffer.height * 3;
             if (mAuxBuffer.share_fd < 0 && mAuxBuffer.img) {
                 // no fd, has img; allocated by new;
+                if (mAuxBuffer.p_awbinfo) {
+                    free(mAuxBuffer.p_awbinfo);
+                    mAuxBuffer.p_awbinfo = NULL;
+                }
+                if (mAuxBuffer.p_aeinfo) {
+                    free(mAuxBuffer.p_aeinfo);
+                    mAuxBuffer.p_aeinfo = NULL;
+                }
                 delete[] mAuxBuffer.img;
                 mAuxBuffer.img = NULL;
             } else if (mAuxBuffer.share_fd >= 0) {
                 // has fd. allocated by ion.
+                if (mAuxBuffer.p_awbinfo) {
+                    free(mAuxBuffer.p_awbinfo);
+                    mAuxBuffer.p_awbinfo = NULL;
+                }
+                if (mAuxBuffer.p_aeinfo) {
+                    free(mAuxBuffer.p_aeinfo);
+                    mAuxBuffer.p_aeinfo = NULL;
+                }
                 mION->free_buffer(mAuxBuffer.share_fd);
                 mAuxBuffer.share_fd = -1;
             } else {
@@ -1405,6 +1421,7 @@ exif_buffer * JpegCompressor::get_exif_buffer() {
     struct tm tmstruct;
     char property[PROPERTY_VALUE_MAX];
     char UserCommentBuffer[64];
+    std::string user_str("");
 
     sEb = (exif_buffer *) malloc (sizeof (exif_buffer));
 
@@ -1483,11 +1500,59 @@ exif_buffer * JpegCompressor::get_exif_buffer() {
     exif_entry_set_short (pEd, EXIF_IFD_EXIF, EXIF_TAG_WHITE_BALANCE, 0);
 
     if (property_get("vendor.media.camhal.otp.info", property, NULL) > 0) {
-        CAMHAL_LOGD("otp info %s", property);
-        sprintf(UserCommentBuffer, "%s", property);
-        entry = create_tag(pEd, EXIF_IFD_EXIF, EXIF_TAG_USER_COMMENT, 8 + sizeof(UserCommentBuffer));
-        sprintf((char *)entry->data, "ASCII   %s" , UserCommentBuffer);
+        sprintf(UserCommentBuffer, "otp info: %s\n", property);
+        user_str = user_str + std::string(UserCommentBuffer);
     }
+
+    if (mAuxBuffer.p_awbinfo != NULL) {
+        CAMHAL_LOGD("awb info %p", mAuxBuffer.p_awbinfo);
+        user_str = user_str + "awb info: ";
+        aml_isp_wb_info_attr awb_info = *((aml_isp_wb_info_attr*)(mAuxBuffer.p_awbinfo));
+        user_str = user_str + "u16Rgain: " + std::to_string(awb_info.u16Rgain) + ";";
+        user_str = user_str + "u16Grgain: " + std::to_string(awb_info.u16Grgain) + ";";
+        user_str = user_str + "u16Gbgain: " + std::to_string(awb_info.u16Gbgain) + ";";
+        user_str = user_str + "u16Bgain: " + std::to_string(awb_info.u16Bgain) + ";";
+        user_str = user_str + "u16Saturation: " + std::to_string(awb_info.u16Saturation) + ";";
+        user_str = user_str + "u16ColorTemp: " + std::to_string(awb_info.u16ColorTemp) + ";";
+        user_str = user_str + "u16ColorTempDiff: " + std::to_string(awb_info.u16ColorTempDiff) + ";";
+        user_str = user_str + "au32CCM: ";
+        for (int i = 0; i < CCM_MATRIX_SIZE; ++i)
+        {
+            user_str = user_str + std::to_string(awb_info.au32CCM[i]) + " ";
+        }
+        user_str = user_str + "\n";
+    }
+
+    if (mAuxBuffer.p_aeinfo != NULL) {
+        CAMHAL_LOGD("ae info %p", mAuxBuffer.p_aeinfo);
+        user_str = user_str + "ae info: ";
+        aml_isp_exp_info_attr ae_info = *((aml_isp_exp_info_attr*)(mAuxBuffer.p_aeinfo));
+        user_str = user_str + "ae_converged: " + std::to_string(ae_info.ae_converged) + ";";
+        user_str = user_str + "ae_slight_change: " + std::to_string(ae_info.ae_slight_change) + ";";
+        user_str = user_str + "ae_sys_expos_log2: " + std::to_string(ae_info.ae_sys_expos_log2) + ";";
+        user_str = user_str + "ae_sys_ratio: " + std::to_string(ae_info.ae_sys_ratio) + ";";
+        user_str = user_str + "ae_sys_min_ratio: " + std::to_string(ae_info.ae_sys_min_ratio) + ";";
+        user_str = user_str + "ae_sys_expos_full: " + std::to_string(ae_info.ae_sys_expos_full) + ";";
+        user_str = user_str + "ae_sns_expos_lines: " + std::to_string(ae_info.ae_sns_expos_lines) + ";";
+        user_str = user_str + "ae_sns_sexpos_lines: " + std::to_string(ae_info.ae_sns_sexpos_lines) + ";";
+        user_str = user_str + "ae_sns_vsexpos_lines: " + std::to_string(ae_info.ae_sns_vsexpos_lines) + ";";
+        user_str = user_str + "ae_sns_vvsexpos_lines: " + std::to_string(ae_info.ae_sns_vvsexpos_lines) + ";";
+        user_str = user_str + "ae_sns_expo_log2: " + std::to_string(ae_info.ae_sns_expo_log2) + ";";
+        user_str = user_str + "ae_sns_shuttime: " + std::to_string(ae_info.ae_sns_shuttime) + ";";
+        user_str = user_str + "ae_sns_again: " + std::to_string(ae_info.ae_sns_again) + ";";
+        user_str = user_str + "ae_sns_hc_again: " + std::to_string(ae_info.ae_sns_hc_again) + ";";
+        user_str = user_str + "ae_sns_dgain: " + std::to_string(ae_info.ae_sns_dgain) + ";";
+        user_str = user_str + "ae_sns_hc_dgain: " + std::to_string(ae_info.ae_sns_hc_dgain) + ";";
+        user_str = user_str + "ae_isp_gain: " + std::to_string(ae_info.ae_isp_gain) + ";";
+        user_str = user_str + "ae_total_gain: " + std::to_string(ae_info.ae_total_gain) + ";";
+        user_str = user_str + "ae_lowlight_enh_ratio: " + std::to_string(ae_info.ae_lowlight_enh_ratio) + ";";
+        user_str = user_str + "ae_daylight: " + std::to_string(ae_info.ae_daylight) + ";";
+        user_str = user_str + "\n";
+    }
+    CAMHAL_LOGD("user_str: %s", user_str.c_str());
+    entry = create_tag(pEd, EXIF_IFD_EXIF, EXIF_TAG_USER_COMMENT, 8 + strlen(user_str.c_str()) + 1);
+    sprintf((char *)entry->data, "ASCII   %s" , user_str.c_str());
+
 
     if (mInfo.has_latitude) {
         ExifRational r1, r2, r3;

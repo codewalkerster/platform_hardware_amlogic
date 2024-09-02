@@ -16,10 +16,11 @@
 #include "media-v4l2/v4l2videodev.h"
 #include "media-v4l2/mediaApi.h"
 
-#include "aml_isp_api.h"
 
 #include "sensor/sensor_config.h"
 #include "lens/lens_config.h"
+#include "aml_isp_adapt.h"
+#include "aisp_command_api.h"
 
 const size_t  kMaxRetryCount   = 100;
 const int64_t kSyncWaitTimeout = 300000000LL; // 300ms
@@ -36,6 +37,7 @@ typedef void (*isp_alg2user)(uint32_t ctx_id, void *param);
 typedef void (*isp_alg2kernel)(uint32_t ctx_id, void *param);
 typedef void (*isp_enable)(uint32_t ctx, void *pstAlgCtx, void *calib);
 typedef void (*isp_disable)(uint32_t ctx_id);
+typedef void (*isp_fw_interface)(uint32_t ctx_id, void *param);
 
 struct ispIF {
     void *lib = nullptr;
@@ -43,6 +45,7 @@ struct ispIF {
     isp_alg2kernel alg2Kernel = nullptr;
     isp_enable     algEnable  = nullptr;
     isp_disable    algDisable = nullptr;
+    isp_fw_interface algFwInterface = nullptr;
 };
 
 struct bufferInfo {
@@ -71,6 +74,8 @@ class IspMgr: public Thread, public virtual RefBase {
     status_t configure(struct media_stream *stream, int wdr = 0, aisp_calib_info_t *otp = nullptr, int fps = 30);
     status_t start();
     status_t stop();
+    status_t getAWBInfo(void* data);
+    status_t getAEInfo(void* data);
   public:
     static struct ispIF  mIspIF;
   protected:

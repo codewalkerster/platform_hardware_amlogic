@@ -155,6 +155,13 @@ V4l2MediaSensor::V4l2MediaSensor() {
                             bAux.format = HAL_PIXEL_FORMAT_YCrCb_420_SP;
                             bAux.stride = b.width;
                             bAux.buffer = NULL;
+                            if (!enable3AInfodebug) {
+                                bAux.p_awbinfo = NULL;
+                                bAux.p_aeinfo = NULL;
+                            } else {
+                                bAux.p_awbinfo = malloc(sizeof(aml_isp_wb_info_attr));
+                                bAux.p_aeinfo =  malloc(sizeof(aml_isp_exp_info_attr));
+                            }
                             len = b.width * b.height * 3/2;
                             stride = bAux.stride;
 #ifdef GE2D_ENABLE
@@ -209,6 +216,9 @@ V4l2MediaSensor::V4l2MediaSensor() {
     mMaxHeight = 0;
     mMaxWidth = 0;
     mExtVinfo = NULL;
+    property_get("vendor.camera.debug.3Ainfo", property, "false");
+    if (strstr(property, "true"))
+        enable3AInfodebug = true;
     CAMHAL_LOGD("construct V4l2MediaSensor");
 }
 
@@ -740,6 +750,10 @@ void V4l2MediaSensor::takePicture(StreamBuffer& b, uint32_t gain, uint32_t strid
         //----do rotation
         mGE2D->doRotationAndMirror(b);
 #endif
+        if (enable3AInfodebug) {
+            mIspMgr->getAWBInfo(b.p_awbinfo);
+            mIspMgr->getAEInfo(b.p_aeinfo);
+        }
         mVinfo->putback_picture_frame();
         mSensorWorkFlag = true;
         break;

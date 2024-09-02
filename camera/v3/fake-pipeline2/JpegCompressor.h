@@ -38,6 +38,8 @@
 #include <libexif/exif-loader.h>
 #include <libexif/exif-mem.h>
 #include "IonIf.h"
+#include "aml_isp_tuning.h"
+#include "aml_isp_adapt.h"
 
 #ifdef HW_JPEG
 #include "HwJpegEnc.h"

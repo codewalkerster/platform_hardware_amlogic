@@ -62,6 +62,13 @@ static int getInterface() {
         dlclose(lib);
         return -1;
     }
+    ispIF->algFwInterface  = (isp_fw_interface)::dlsym(lib, "aisp_fw_interface");
+    if (!ispIF->algFwInterface) {
+        char const* err_str = ::dlerror();
+        CAMHAL_LOGE("dlsym: error:%s", (err_str ? err_str : "unknown"));
+        dlclose(lib);
+        return -1;
+    }
     ispIF->lib = lib;
     CAMHAL_LOGI("%s success", __FUNCTION__);
     return 0;
@@ -460,6 +467,55 @@ status_t IspMgr::stop() {
     CAMHAL_LOGD("stop -");
     return rc;
 }
+
+status_t IspMgr::getAWBInfo(void* data)
+{
+    Mutex::Autolock _l(mLock);
+    CAMHAL_LOGI("getAWBInfo mStart %d", mStart);
+    if (data == NULL || mStart == false)
+    {
+        CAMHAL_LOGI("IspMgr not working or invalid data");
+        return -1;
+    }
+    aisp_api_type_t param;
+    aml_isp_wb_info_attr _data;
+    aisp_api_type_t *api_type = &param;
+    api_type->u8Direction = AML_CMD_GET;
+    api_type->u8CmdType = 0;
+    api_type->u8CmdId = AML_MBI_ISP_QueryWBinfo;
+    api_type->u32Value = 0;
+    api_type->pData = (uint32_t *)&_data;
+    (IspMgr::mIspIF.algFwInterface)(mId, api_type);
+
+    CAMHAL_LOGI("getAWBInfo data %p", data);
+    memcpy((uint8_t *)data, (uint8_t *)&_data, sizeof(aml_isp_wb_info_attr));
+    return 0;
+}
+
+status_t IspMgr::getAEInfo(void* data)
+{
+    Mutex::Autolock _l(mLock);
+    CAMHAL_LOGI("getAEInfo mStart %d", mStart);
+    if (data == NULL || mStart == false)
+    {
+        CAMHAL_LOGI("IspMgr not working or invalid data");
+        return -1;
+    }
+    aisp_api_type_t param;
+    aml_isp_exp_info_attr _data;
+    aisp_api_type_t *api_type = &param;
+    api_type->u8Direction = AML_CMD_GET;
+    api_type->u8CmdType = 0;
+    api_type->u8CmdId = AML_MBI_ISP_QueryEXPinfo;
+    api_type->u32Value = 0;
+    api_type->pData = (uint32_t *)&_data;
+    (IspMgr::mIspIF.algFwInterface)(mId, api_type);
+
+    CAMHAL_LOGI("getAEInfo data %p", data);
+    memcpy((uint8_t *)data, (uint8_t *)&_data, sizeof(aml_isp_exp_info_attr));
+    return 0;
+}
+
 
 status_t IspMgr::pollDevices(const std::vector<struct media_entity *> &devices,
                                 std::vector<struct media_entity *> &activeDevices,

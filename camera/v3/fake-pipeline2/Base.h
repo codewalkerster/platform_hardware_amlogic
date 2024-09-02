@@ -45,6 +45,8 @@ struct StreamBuffer {
     buffer_handle_t *buffer;
     uint8_t *img;
     int     share_fd;
+    void* p_awbinfo;
+    void* p_aeinfo;
     static bool comp_greater (const StreamBuffer &a, const StreamBuffer &b) {
         return a.width > b.width;
     };

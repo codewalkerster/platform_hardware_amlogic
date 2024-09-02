@@ -78,6 +78,7 @@ namespace android {
             stream_configuration_t mStreamconfig;
             int mStreamState;
             sp<IspMgr> mIspMgr;
+            bool enable3AInfodebug;
             //store the v4l2 info
             MIPIVideoInfo *mVinfo;
             MIPIVideoInfo *mExtVinfo;
