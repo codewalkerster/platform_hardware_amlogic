@@ -99,8 +99,13 @@ ScopedAStatus EArc::setCallback(const std::shared_ptr<IEArcCallback>& callback) 
         mCallback = callback;
         AIBinder_linkToDeath(mCallback->asBinder().get(), mDeathRecipient.get(), this /* cookie */);
     }
-    int attend_type = aml_mixer_ctrl_get_int(&mAlsaMixer, AML_MIXER_ID_EARC_TX_ATTENDED_TYPE);
-    ALOGD("%s with attend type:%d", __FUNCTION__, attend_type);
+    int attend_type = EARC_STATE_UNKNOWN;
+    if (mEArcTx) {
+        attend_type = aml_mixer_ctrl_get_int(&mAlsaMixer, AML_MIXER_ID_EARC_TX_ATTENDED_TYPE);
+    } else {
+        attend_type = aml_mixer_ctrl_get_int(&mAlsaMixer, AML_MIXER_ID_EARC_RX_ATTENDED_TYPE);
+    }
+    ALOGD("%s with attend type:%d tx:?%d", __FUNCTION__, attend_type, mEArcTx);
     // report the status after callback is set
     changeState(toEArcStatus(attend_type), mEArcPort);
 
@@ -144,9 +149,7 @@ EArc::EArc() {
     open_mixer_handle(&mAlsaMixer);
 
     mEArcSupported = android::base::GetProperty(PROPERTY_EARC_SUPPORTED, "false") == "true";
-    mEArcPort =  getPropertyInt(PROPERTY_EARC_PORT, EARC_PORT_DEFAULT, EARC_PORT_STR_DEFAULT);
-
-    ALOGI("EArc is supported?:%d arc port:%d", mEArcSupported, mEArcPort);
+    mEArcTx = android::base::GetProperty(PROPERTY_DEVICE_TYPE, "tv") == "tv";
 
     if (!mEArcSupported) {
         return;
@@ -184,6 +187,11 @@ IEArcStatus EArc::toEArcStatus(int state) {
 void EArc::handleEarcState(IEArcStatus eArcStatus) {
     // notify the changed earc state to listeners
     changeState(eArcStatus, mEArcPort);
+
+    if (!mEArcTx) {
+        // Rx earc device does not need to set capabilities.
+        return;
+    }
 
     // If it's earc connected, then notify the earc sads.
     if (eArcStatus == IEArcStatus::EARC_CONNECTED) {

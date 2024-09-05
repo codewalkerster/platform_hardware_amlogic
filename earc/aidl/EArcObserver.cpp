@@ -85,19 +85,22 @@ void EArcObserver::processUevent() {
     cp = msg;
 
     while (*cp) {
-        if (strstr(cp, STR_UEVENT_EARC_STATE_UNKNOWN)) {
+        if (strstr(cp, TX_UEVENT_EARC_STATE_UNKNOWN)
+            || strstr(cp, RX_UEVENT_EARC_STATE_UNKNOWN)) {
             ALOGD("receive uevent earc state %s", cp);
             if (mEArcListener != NULL) {
                 mEArcListener->onEArcEvent(EARC_STATE_UNKNOWN);
             }
             break;
-        } else if (!strcmp(cp, STR_UEVENT_EARC_STATE_ARC)) {
+        } else if (!strcmp(cp, TX_UEVENT_EARC_STATE_ARC)
+            || !strcmp(cp, RX_UEVENT_EARC_STATE_ARC)) {
             ALOGD("receive uevent earc state %s", cp);
             if (mEArcListener != NULL) {
                 mEArcListener->onEArcEvent(EARC_STATE_ARC);
             }
             break;
-        } else if (!strcmp(cp, STR_UEVENT_EARC_STATE_EARC)) {
+        } else if (!strcmp(cp, TX_UEVENT_EARC_STATE_EARC)
+            || !strcmp(cp, RX_UEVENT_EARC_STATE_EARC)) {
             ALOGD("receive uevent earc state %s", cp);
             if (mEArcListener != NULL) {
                 mEArcListener->onEArcEvent(EARC_STATE_EARC);

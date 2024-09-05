@@ -27,6 +27,7 @@
 #define PROPERTY_EARC_Enabled           "persist.vendor.sys.earc_enabled"
 #define PROPERTY_ARC_PORT               "persist.vendor.sys.arc_port"
 #define PROPERTY_EARC_PORT              "ro.vendor.hdmi.arc_port"
+#define PROPERTY_DEVICE_TYPE            "ro.hdmi.cec_device_types"
 
 #define EARC_PORT_DEFAULT               2
 #define EARC_PORT_STR_DEFAULT           "2"
@@ -91,6 +92,8 @@ private:
     IEArcStatus mPortStatus;
     bool mEArcEnabled = true;
     bool mEArcSupported = false;
+    bool mEArcTx = true;
+    int mFirstSetEArcEnabled = 1;
 
     int mEArcPort = EARC_PORT_DEFAULT;
 
