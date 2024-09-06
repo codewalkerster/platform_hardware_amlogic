@@ -1504,10 +1504,16 @@ status_t EmulatedFakeCamera3::processCaptureRequest(
               destBuf.stride   = am_gralloc_get_stride_in_pixel((native_handle_t*)(*srcBuf.buffer));//srcBuf.stream->width;
               destBuf.buffer   = srcBuf.buffer;
               destBuf.share_fd = am_gralloc_get_buffer_fd((native_handle_t*)(*srcBuf.buffer));
-
               if (dataspace > 0) {
-                GraphicBufferMapper::get().setDataspace(*(srcBuf.buffer), (ui::Dataspace)dataspace);
+                    GraphicBufferMapper::get().setDataspace(*(srcBuf.buffer),
+                        (ui::Dataspace)dataspace);
+              } else {
+                    if (mSensorType == SENSOR_V4L2MEDIA) {
+                        GraphicBufferMapper::get().setDataspace(*(srcBuf.buffer),
+                            (ui::Dataspace)(HAL_DATASPACE_STANDARD_BT601_625 | HAL_DATASPACE_RANGE_FULL));
+                    }
               }
+
               if (destBuf.format == HAL_PIXEL_FORMAT_BLOB) {
                      needJpeg = true;
                      memset(&info,0,sizeof(struct ExifInfo));
