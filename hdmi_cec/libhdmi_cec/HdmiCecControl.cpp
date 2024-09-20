@@ -219,7 +219,9 @@ HdmiCecControl::HdmiCecControl(int event)
 
     mMsgHandler = sp<MsgHandler>::make(this);
     mMsgHandler->startMsgQueue();
-    if (mCecDevice.is_cec_enabled) {
+
+    // Hdmi connection hal could also use this cpp.
+    if (mCecDevice.is_cec_enabled && ((mCecEvent & HDMI_EVENT_CEC_MESSAGE) != 0)) {
         ioctl(mCecDevice.driver_fd, CEC_IOC_SET_OPTION_ENABLE_CEC, 1);
         // Boot one touch play logic for aml products.
         /* coverity[uninit_member] */
@@ -987,10 +989,6 @@ void HdmiCecControl::getDeviceExtraInfo(int flag)
 }
 
 void HdmiCecControl::bootOneTouchPlay() {
-    if ((mCecEvent & HDMI_EVENT_CEC_MESSAGE) == 0) {
-        // Hdmi connection hal could also use this cpp.
-        return;
-    }
     if (!mCecDevice.is_playback || mCecDevice.is_audio_system) {
         // only do this for a single playback device.
         return;
