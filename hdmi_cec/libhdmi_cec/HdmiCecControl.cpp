@@ -1279,8 +1279,8 @@ bool HdmiCecControl::handleCecEnabled(int enabled) {
         return false;
     }
     // cec disabled
-    setOption(HDMI_OPTION_WAKEUP, 0);
-    LOGI("abort notify driver cec disabled");
+    int ret = ioctl(mCecDevice.driver_fd, CEC_IOC_SET_OPTION_WAKEUP, 0);
+    LOGI("abort notify driver cec disabled and disable auto wake up ret:%d", ret);
     return true;
 }
 
