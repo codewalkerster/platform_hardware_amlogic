@@ -292,6 +292,9 @@ bool Dumpstate::getVerboseLoggingEnabledImpl() {
 void Dumpstate::dumpstateBoardOfSystem(int fd, int64_t maxtime) {
     (void)maxtime;
 
+    DumpFileToFd(fd, "wifi_fw_trace log", "/data/vendor/fw_trace.log");
+    DumpFileToFd(fd, "bluetooth_fw_trace log", "/data/vendor/fw_log.txt");
+
     DumpFileToFd(fd, "LITTLE cluster time-in-state", "/sys/devices/system/cpu/cpu0/cpufreq/stats/time_in_state");
     //clock master
     DumpFileToFd(fd, "clkmsr", "/sys/kernel/debug/aml_clkmsr/clkmsr");
