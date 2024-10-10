@@ -84,6 +84,10 @@ HDMISensor::HDMISensor() {
             mDump = new CameraUtil();
         }
     }
+    if (property_get_bool("vendor.media.camera.low_latency_mode", true)) {
+        CAMHAL_LOGD("running in low latency mode");
+        mLowLatencyMode = true;
+    }
 }
 HDMISensor::~HDMISensor() {
     if (mMPlaneCameraIO) {
