@@ -241,8 +241,8 @@ int cmos_get_ae_default_imx290(int ViPipe, ALG_SENSOR_DEFAULT_S *pstAeSnsDft)
     } else {
         g_sensorPtr[ViPipe]->snsAlgInfo.sensor_exp_number = 1;
         g_sensorPtr[ViPipe]->snsAlgInfo.bits = 12;
-        g_sensorPtr[ViPipe]->snsAlgInfo.total.width = 4400; // should match sensor hmax register[0x301a-0x3018]
-        g_sensorPtr[ViPipe]->snsAlgInfo.total.height = 1157; // should match sensor vmax register[0x301d-0x301c]
+        g_sensorPtr[ViPipe]->snsAlgInfo.total.width = 4400; // should match sensor hmax register[0x301d-0x301c]
+        g_sensorPtr[ViPipe]->snsAlgInfo.total.height = 1125; // should match sensor vmax register[0x301a-0x3018]
         g_sensorPtr[ViPipe]->snsAlgInfo.lines_per_second = g_sensorPtr[ViPipe]->snsAlgInfo.total.height * g_sensorPtr[ViPipe]->snsAlgInfo.fps / 256;
         g_sensorPtr[ViPipe]->snsAlgInfo.pixels_per_line = g_sensorPtr[ViPipe]->snsAlgInfo.total.width;
         g_sensorPtr[ViPipe]->snsAlgInfo.integration_time_min = 1<<SHUTTER_TIME_SHIFT;
@@ -250,7 +250,7 @@ int cmos_get_ae_default_imx290(int ViPipe, ALG_SENSOR_DEFAULT_S *pstAeSnsDft)
         g_sensorPtr[ViPipe]->snsAlgInfo.integration_time_long_max = (g_sensorPtr[ViPipe]->snsAlgInfo.total.height - 2)<<SHUTTER_TIME_SHIFT;
         g_sensorPtr[ViPipe]->snsAlgInfo.integration_time_limit = (g_sensorPtr[ViPipe]->snsAlgInfo.total.height - 2)<<SHUTTER_TIME_SHIFT;
 
-        inttime_sdr_alg_value = (g_sensorPtr[ViPipe]->snsAlgInfo.total.height - (0x0181 + 1))<< SHUTTER_TIME_SHIFT;;
+        inttime_sdr_alg_value = (g_sensorPtr[ViPipe]->snsAlgInfo.total.height - 1)<< SHUTTER_TIME_SHIFT;
 
         if (property_get_bool("vendor.camhal.mipi.save_and_use_3a", false)) {
             // load from camera data saver. if load fail (for the first time after power on)
@@ -368,8 +368,8 @@ void cmos_inttime_calc_table_imx290(int ViPipe, uint32_t pu32ExpL, uint32_t pu32
         if (shutter_time_lines < 1)
             shutter_time_lines = 1;
 
-        if (shutter_time_lines > (shutter_time_line_each_frame - 2))
-            shutter_time_lines = (shutter_time_line_each_frame - 2);
+        if (shutter_time_lines > (shutter_time_line_each_frame - 1))
+            shutter_time_lines = (shutter_time_line_each_frame - 1);
 
     } else {
         shutter_time_lines_short = 205 - shutter_time_lines_short - 1;
@@ -427,9 +427,9 @@ void cmos_fps_set_imx290(int ViPipe, float f32Fps, ALG_SENSOR_DEFAULT_S *pstAeSn
     } else {
         // sdr
         g_sensorPtr[ViPipe]->snsAlgInfo.integration_time_min = 1 << SHUTTER_TIME_SHIFT;
-        g_sensorPtr[ViPipe]->snsAlgInfo.integration_time_max = g_sensorPtr[ViPipe]->snsAlgInfo.total.height << SHUTTER_TIME_SHIFT;
-        g_sensorPtr[ViPipe]->snsAlgInfo.integration_time_long_max = g_sensorPtr[ViPipe]->snsAlgInfo.total.height << SHUTTER_TIME_SHIFT;
-        g_sensorPtr[ViPipe]->snsAlgInfo.integration_time_limit = g_sensorPtr[ViPipe]->snsAlgInfo.total.height << SHUTTER_TIME_SHIFT;
+        g_sensorPtr[ViPipe]->snsAlgInfo.integration_time_max = (g_sensorPtr[ViPipe]->snsAlgInfo.total.height - 2) << SHUTTER_TIME_SHIFT;
+        g_sensorPtr[ViPipe]->snsAlgInfo.integration_time_long_max = (g_sensorPtr[ViPipe]->snsAlgInfo.total.height - 2) << SHUTTER_TIME_SHIFT;
+        g_sensorPtr[ViPipe]->snsAlgInfo.integration_time_limit = (g_sensorPtr[ViPipe]->snsAlgInfo.total.height - 2) << SHUTTER_TIME_SHIFT;
     }
     g_sensorPtr[ViPipe]->snsAlgInfo.lines_per_second = g_sensorPtr[ViPipe]->snsAlgInfo.total.height * fpsCtrl.value;
     memcpy(pstAeSnsDft, &g_sensorPtr[ViPipe]->snsAlgInfo, sizeof(ALG_SENSOR_DEFAULT_S));
