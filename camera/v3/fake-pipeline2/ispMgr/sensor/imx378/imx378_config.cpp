@@ -182,8 +182,8 @@ int cmos_get_ae_default_imx378(int ViPipe, ALG_SENSOR_DEFAULT_S *pstAeSnsDft)
     } else {
         g_sensorPtr[ViPipe]->snsAlgInfo.sensor_exp_number = 1;
         g_sensorPtr[ViPipe]->snsAlgInfo.bits = 10;
-        g_sensorPtr[ViPipe]->snsAlgInfo.total.width = 4512; // should match sensor hmax register[0x301a-0x3018]
-        g_sensorPtr[ViPipe]->snsAlgInfo.total.height = 3488; // should match sensor vmax register[0x301d-0x301c]
+        g_sensorPtr[ViPipe]->snsAlgInfo.total.width = 4512; // should match sensor hmax register[0x0342-0x0343]
+        g_sensorPtr[ViPipe]->snsAlgInfo.total.height = 3488; // should match sensor vmax register[0x0340-0x0341]
         g_sensorPtr[ViPipe]->snsAlgInfo.lines_per_second = g_sensorPtr[ViPipe]->snsAlgInfo.total.height * g_sensorPtr[ViPipe]->snsAlgInfo.fps / 256;
         g_sensorPtr[ViPipe]->snsAlgInfo.pixels_per_line = g_sensorPtr[ViPipe]->snsAlgInfo.total.width;
         g_sensorPtr[ViPipe]->snsAlgInfo.integration_time_min = 1<<SHUTTER_TIME_SHIFT;
@@ -316,22 +316,39 @@ void cmos_fps_set_imx378(int ViPipe, float f32Fps, ALG_SENSOR_DEFAULT_S *pstAeSn
 {
     //CAMHAL_LOGD("-imx378- f32Fps = %f, %d\n",f32Fps, (int32_t)(f32Fps / 256));
 
-    struct v4l2_ext_control fpsCtrl;
+    uint32_t clk_cnt;
+    struct v4l2_ext_control sensorCtrl;
 
-    fpsCtrl.id = V4L2_CID_AML_ORIG_FPS;
-    fpsCtrl.value = (int32_t)(f32Fps / 256);
-    //CAMHAL_LOGD("-imx378- fpsCtrl.value = %d\n",fpsCtrl.value);
+    memset(&sensorCtrl, 0, sizeof(struct v4l2_ext_control));
+    sensorCtrl.id = V4L2_CID_AML_ORIG_FPS;
+    sensorCtrl.value = (int32_t)(f32Fps / 256);
+    v4l2_subdev_set_ctrls(g_sensorPtr[ViPipe]->sensor_ent, &sensorCtrl, 1);
+    CAMHAL_LOGD("-imx378- setting fps = %d\n", sensorCtrl.value);
 
-    g_sensorPtr[ViPipe]->snsAlgInfo.total.height = ( 3488 * 30 )/fpsCtrl.value;
-    g_sensorPtr[ViPipe]->snsAlgInfo.fps = fpsCtrl.value*256;
+    clk_cnt = g_sensorPtr[ViPipe]->snsAlgInfo.fps * g_sensorPtr[ViPipe]->snsAlgInfo.total.height;
+    g_sensorPtr[ViPipe]->snsAlgInfo.total.height = clk_cnt / f32Fps;
+    g_sensorPtr[ViPipe]->snsAlgInfo.fps = f32Fps;
+    g_sensorPtr[ViPipe]->snsAlgInfo.lines_per_second =
+        g_sensorPtr[ViPipe]->snsAlgInfo.total.height * sensorCtrl.value;
 
-    g_sensorPtr[ViPipe]->snsAlgInfo.integration_time_max = g_sensorPtr[ViPipe]->snsAlgInfo.total.height << SHUTTER_TIME_SHIFT;
-    g_sensorPtr[ViPipe]->snsAlgInfo.integration_time_long_max = g_sensorPtr[ViPipe]->snsAlgInfo.total.height << SHUTTER_TIME_SHIFT;
-    g_sensorPtr[ViPipe]->snsAlgInfo.integration_time_limit = g_sensorPtr[ViPipe]->snsAlgInfo.total.height << SHUTTER_TIME_SHIFT;
-    g_sensorPtr[ViPipe]->snsAlgInfo.lines_per_second = g_sensorPtr[ViPipe]->snsAlgInfo.total.height * fpsCtrl.value;
+    memset(&sensorCtrl, 0, sizeof(struct v4l2_ext_control));
+    sensorCtrl.id = V4L2_CID_AML_VTS;
+    sensorCtrl.value = g_sensorPtr[ViPipe]->snsAlgInfo.total.height;
+    CAMHAL_LOGD("-imx378- vtsCtrl.value = %d\n", sensorCtrl.value);
+    v4l2_subdev_set_ctrls(g_sensorPtr[ViPipe]->sensor_ent, &sensorCtrl, 1);
+    if (g_sensorPtr[ViPipe]->enWDRMode) {
+        g_sensorPtr[ViPipe]->snsAlgInfo.integration_time_min = 1<<SHUTTER_TIME_SHIFT;
+        g_sensorPtr[ViPipe]->snsAlgInfo.integration_time_max = g_sensorPtr[ViPipe]->snsAlgInfo.total.height << SHUTTER_TIME_SHIFT;
+        g_sensorPtr[ViPipe]->snsAlgInfo.integration_time_long_max = g_sensorPtr[ViPipe]->snsAlgInfo.total.height << SHUTTER_TIME_SHIFT;
+        g_sensorPtr[ViPipe]->snsAlgInfo.integration_time_limit = g_sensorPtr[ViPipe]->snsAlgInfo.total.height << SHUTTER_TIME_SHIFT;
+    } else {
+        g_sensorPtr[ViPipe]->snsAlgInfo.integration_time_min = 1<<SHUTTER_TIME_SHIFT;
+        g_sensorPtr[ViPipe]->snsAlgInfo.integration_time_max = g_sensorPtr[ViPipe]->snsAlgInfo.total.height << SHUTTER_TIME_SHIFT;
+        g_sensorPtr[ViPipe]->snsAlgInfo.integration_time_long_max = g_sensorPtr[ViPipe]->snsAlgInfo.total.height << SHUTTER_TIME_SHIFT;
+        g_sensorPtr[ViPipe]->snsAlgInfo.integration_time_limit = g_sensorPtr[ViPipe]->snsAlgInfo.total.height << SHUTTER_TIME_SHIFT;
+    }
     memcpy(pstAeSnsDft, &g_sensorPtr[ViPipe]->snsAlgInfo, sizeof(ALG_SENSOR_DEFAULT_S));
 
-    v4l2_subdev_set_ctrls(g_sensorPtr[ViPipe]->sensor_ent, &fpsCtrl, 1);
 }
 
 void cmos_alg_update_imx378(int ViPipe)

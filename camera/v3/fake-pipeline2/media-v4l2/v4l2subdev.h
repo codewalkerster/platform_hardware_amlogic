@@ -41,6 +41,7 @@ enum {
 #define V4L2_CID_AML_STROBE          (V4L2_CID_AML_BASE + 0x003)
 #define V4L2_CID_AML_MODE            (V4L2_CID_AML_BASE + 0x004)
 #define V4L2_CID_AML_ADDRESS         (V4L2_CID_AML_BASE + 0x005)
+#define V4L2_CID_AML_VTS             (V4L2_CID_AML_BASE + 0x009)
 
 /**
  * @brief Open a sub-device.
