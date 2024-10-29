@@ -660,6 +660,8 @@ void HdmiCecControl::getDeviceTypes() {
             mCecDevice.is_tv = true;
         } else if (mCecDevice.device_types[index] == DEV_TYPE_PLAYBACK) {
             mCecDevice.is_playback = true;
+        } else if (mCecDevice.device_types[index] == DEV_TYPE_AUDIO_SYSTEM) {
+            mCecDevice.is_audio_system = true;
         }
         LOGI("mCecDevice.device_types[%d]: %d", index, mCecDevice.device_types[index]);
     }
