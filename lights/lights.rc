@@ -1,7 +1,11 @@
 service vendor.lights  /vendor/bin/hw/lights
     class hal
-    user nobody
+    user system
     group system
     # FIXME: actually do this
     # shutting off lights while powering-off
     shutdown critical
+    oneshot
+
+on property:init.svc.zygote=stopped
+    start vendor.lights
