@@ -150,6 +150,7 @@ EArc::EArc() {
 
     mEArcSupported = android::base::GetProperty(PROPERTY_EARC_SUPPORTED, "false") == "true";
     mEArcTx = android::base::GetProperty(PROPERTY_DEVICE_TYPE, "tv") == "tv";
+    (void)mFirstSetEArcEnabled;
 
     if (!mEArcSupported) {
         return;
