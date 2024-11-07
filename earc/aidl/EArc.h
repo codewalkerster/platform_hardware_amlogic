@@ -26,7 +26,6 @@
 #define PROPERTY_EARC_SUPPORTED         "ro.vendor.media.support_earc"
 #define PROPERTY_EARC_Enabled           "persist.vendor.sys.earc_enabled"
 #define PROPERTY_ARC_PORT               "persist.vendor.sys.arc_port"
-#define PROPERTY_EARC_PORT              "ro.vendor.hdmi.arc_port"
 #define PROPERTY_DEVICE_TYPE            "ro.hdmi.cec_device_types"
 
 #define EARC_PORT_DEFAULT               2
@@ -80,6 +79,7 @@ private:
     IEArcStatus toEArcStatus(int state);
     void handleEarcState(IEArcStatus status);
     int getPropertyInt(const char * key, int def, const char* defaultValue);
+    void getEArcPort();
 
 private:
     static void serviceDied(void* cookie);

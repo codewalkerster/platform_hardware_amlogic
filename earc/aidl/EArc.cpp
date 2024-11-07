@@ -91,6 +91,11 @@ ScopedAStatus EArc::getLastReportedAudioCapabilities(int32_t portId,
 }
 
 ScopedAStatus EArc::setCallback(const std::shared_ptr<IEArcCallback>& callback) {
+    // The earc port can't be certain until hdmi connection hal's initialization is finished.
+    // As android hdmi control service does setCallback action after hdmi connection service
+    // is initiated, we can make certain of the earc port when the first callback is set.
+    getEArcPort();
+
     if (mCallback != nullptr) {
         mCallback = nullptr;
     }
@@ -107,7 +112,7 @@ ScopedAStatus EArc::setCallback(const std::shared_ptr<IEArcCallback>& callback) 
     }
     ALOGD("%s with attend type:%d tx:?%d", __FUNCTION__, attend_type, mEArcTx);
     // report the status after callback is set
-    changeState(toEArcStatus(attend_type), mEArcPort);
+    handleEarcState(toEArcStatus(attend_type));
 
     return ScopedAStatus::ok();
 }
@@ -150,7 +155,6 @@ EArc::EArc() {
 
     mEArcSupported = android::base::GetProperty(PROPERTY_EARC_SUPPORTED, "false") == "true";
     mEArcTx = android::base::GetProperty(PROPERTY_DEVICE_TYPE, "tv") == "tv";
-    (void)mFirstSetEArcEnabled;
 
     if (!mEArcSupported) {
         return;
@@ -218,6 +222,14 @@ int EArc::getPropertyInt(const char* key, int def, const char* defValue) {
         ALOGE("Conversion failed. Non-numeric characters found: %s\n", endptr);
     }
     return def;
+}
+
+void EArc::getEArcPort() {
+    if (mFirstSetEArcEnabled == 1) {
+        mFirstSetEArcEnabled = -1;
+        mEArcPort = getPropertyInt(PROPERTY_ARC_PORT, EARC_PORT_DEFAULT, EARC_PORT_STR_DEFAULT);
+        ALOGI("EArc is supported?:%d arc port:%d", mEArcSupported, mEArcPort);
+    }
 }
 
 EArc::EArcStateListener::EArcStateListener(EArc *eArc) {
