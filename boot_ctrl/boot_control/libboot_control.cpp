@@ -567,13 +567,6 @@ bool BootControl::Init() {
     return false;
   }
 
-  if (boot_ctrl.slot_info[current_slot_].successful_boot == 1) {
-    if (get_sys_boot_complete() != 0) {
-      set_sys_boot_complete();
-      LOG(INFO) << "call set_sys_boot_complete in init";
-    }
-  }
-
   LOG(INFO) << "boot_ctrl.roll_flag = " << boot_ctrl.roll_flag;
 
   if (boot_ctrl.roll_flag == 1) {
@@ -777,6 +770,15 @@ bool BootControl::IsSlotMarkedSuccessful(unsigned int slot) {
     LOG(INFO) << "boot complete ok, set firstboot 0";
     bootctrl.firstboot = 0;
     UpdateAndSaveBootloaderControl(misc_device_, &bootctrl);
+
+    if (bootctrl.slot_info[slot].successful_boot == 1) {
+      LOG(INFO) << "check if ARB version changes";
+      if (get_sys_boot_complete() != 0) {
+        set_sys_boot_complete();
+        LOG(INFO) << "reboot for ARB";
+        reboot_device();
+      }
+    }
   }
 
   return bootctrl.slot_info[slot].successful_boot && bootctrl.slot_info[slot].tries_remaining;
