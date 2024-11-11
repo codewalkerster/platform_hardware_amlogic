@@ -1391,7 +1391,7 @@ void HdmiCecControl::maySendSetStreamPath() {
     int physicalAddress = mCecDevice.active_routing_path;
     hdmi_cec_event_t event;
     event.eventType = HDMI_EVENT_CEC_MESSAGE;
-    event.cec.initiator = CEC_ADDR_TV;
+    event.cec.initiator = CEC_ADDR_BROADCAST;
     event.cec.destination = CEC_ADDR_BROADCAST;
     event.cec.length = 3;
     event.cec.body[0] = CEC_MESSAGE_SET_STREAM_PATH;
