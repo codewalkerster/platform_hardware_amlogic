@@ -82,7 +82,8 @@ endif
 LOCAL_SRC_FILES += keymint/AmlogicSecureClock.cpp \
                     keymint/AmlogicSharedSecret.cpp \
                     ipc/amlogic_keymaster_ipc.cpp \
-                    AmlogicKeymaster.cpp
+                    AmlogicKeymaster.cpp \
+                    provisioner/rkp_factory_extraction.cpp
 
 LOCAL_MODULE_CLASS := EXECUTABLES
 LOCAL_MODULE_PATH := $(TARGET_OUT_VENDOR)/bin
@@ -94,8 +95,7 @@ TRUSTY_SRC_FILES := ../../../system/core/trusty/keymaster/TrustyKeymaster.cpp \
 TRUSTY_SHARED_LIBRARIES := libtrusty
 TRUSTY_INCLUDES = system/core/trusty/libtrusty/include \
                    system/core/trusty/keymaster/include \
-                   system/core/libutils/include/ \
-                   system/security/provisioner/
+                   system/core/libutils/include/
 
 LOCAL_C_INCLUDES := \
                     $(LOCAL_PATH)/include
@@ -129,8 +129,6 @@ LOCAL_SHARED_LIBRARIES := \
                     libcppbor_external \
                     libcppcose_rkp \
                     libcrypto
-
-LOCAL_STATIC_LIBRARIES := librkp_factory_extraction
 
 ifeq ($(shell test $(PLATFORM_SDK_VERSION) -ge 26 && echo OK),OK)
 LOCAL_PROPRIETARY_MODULE := true
@@ -155,8 +153,7 @@ TRUSTY_SRC_FILES := ../../../system/core/trusty/keymaster/TrustyKeymaster.cpp \
 TRUSTY_SHARED_LIBRARIES := libtrusty
 TRUSTY_INCLUDES = system/core/trusty/libtrusty/include \
                    system/core/trusty/keymaster/include \
-                   system/core/libutils/include/ \
-                   system/security/provisioner/
+                   system/core/libutils/include/
 
 LOCAL_MODULE_RELATIVE_PATH := hw
 LOCAL_SRC_FILES := keymint/service.cpp \
@@ -170,7 +167,8 @@ endif
 LOCAL_SRC_FILES += keymint/AmlogicSecureClock.cpp \
                     keymint/AmlogicSharedSecret.cpp \
                     ipc/amlogic_keymaster_ipc.cpp \
-                    AmlogicKeymaster.cpp
+                    AmlogicKeymaster.cpp \
+                    provisioner/rkp_factory_extraction.cpp
 
 LOCAL_C_INCLUDES := \
                     $(LOCAL_PATH)/include
@@ -205,10 +203,6 @@ LOCAL_SHARED_LIBRARIES := \
                     libcppcose_rkp \
                     libcrypto
 
-ifneq ($(NO_RKP_HAL), true)
-LOCAL_STATIC_LIBRARIES := librkp_factory_extraction
-endif
-
 ifeq ($(shell test $(PLATFORM_SDK_VERSION) -ge 26 && echo OK),OK)
 LOCAL_PROPRIETARY_MODULE := true
 endif
@@ -224,7 +218,6 @@ LOCAL_REQUIRED_MODULES := $(TA_UUID)
 LOCAL_REQUIRED_MODULES += android.hardware.hardware_keystore.amlogic.xml
 LOCAL_REQUIRED_MODULES += provision_devid_demo
 ifneq ($(NO_RKP_HAL), true)
-LOCAL_REQUIRED_MODULES += rkp_factory_extraction_tool
 LOCAL_VINTF_FRAGMENTS := keymint/android.hardware.security.keymint-service.amlogic.xml
 else
 LOCAL_VINTF_FRAGMENTS := keymint/android.hardware.security.keymint-service-no-rkp.amlogic.xml

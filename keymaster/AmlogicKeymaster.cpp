@@ -21,8 +21,8 @@
 #include <keymaster/keymaster_configuration.h>
 #include <amlogic_keymaster/AmlogicKeymaster.h>
 #include <amlogic_keymaster/ipc/amlogic_keymaster_ipc.h>
+#include <provisioner/rkp_factory_extraction.h>
 
-#include <rkp_factory_extraction_lib.h>
 #include <android/binder_manager.h>
 #include <remote_prov/remote_prov_utils.h>
 
