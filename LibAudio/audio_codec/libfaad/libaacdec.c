@@ -341,8 +341,9 @@ static int audio_decoder_init(
     {
         int latmheader_detected = 0,adtsheader_detected = 0;
         int nSeekNum = AACFindLATMSyncWord((unsigned char *)in_buf, inbuf_size);
-        if (nSeekNum == (inbuf_size - 1)) {
+        if (nSeekNum == (inbuf_size - 2)) {
               audio_codec_print("%d bytes data not found latm sync header \n", nSeekNum);
+              islatm = 0;
 
         } else {
             latmheader_detected = 1;
