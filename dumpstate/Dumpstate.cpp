@@ -362,6 +362,10 @@ void Dumpstate::dumpstateBoardOfDisplay(int fd, int64_t maxtime) {
     DumpFileToFd(fd, "hdmitx_cur_status", "/sys/class/amhdmitx/amhdmitx0/hdmitx_cur_status");
     DumpFileToFd(fd, "hdmirx_info", "/sys/class/amhdmitx/amhdmitx0/hdmirx_info");
     DumpFileToFd(fd, "clkmsr", "/sys/class/amhdmitx/amhdmitx0/clkmsr");
+    DumpFileToFd(fd, "frac_rate_policy", "/sys/class/amhdmitx/amhdmitx0/frac_rate_policy");
+    DumpFileToFd(fd, "phy", "/sys/class/amhdmitx/amhdmitx0/phy");
+    DumpFileToFd(fd, "avmute", "/sys/class/amhdmitx/amhdmitx0/avmute");
+    DumpFileToFd(fd, "vid_mute", "/sys/class/amhdmitx/amhdmitx0/vid_mute");
 
     //hdmitx21
     DumpFileToFd(fd, "hdmitx21_reg", "/proc/amhdmitx/hdmi_reg");

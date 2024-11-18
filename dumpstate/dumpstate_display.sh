@@ -15,9 +15,15 @@ function dump_node () {
     fi
 }
 
+echo "###################################### vinfo ###########################################"
+dump_node /sys/class/display/vinfo
+dump_node /sys/module/aml_media/parameters/hdmi_authenticated
+
 echo "################################Dump DV/HDR information ###############################"
 dump_node /sys/class/amhdmitx/amhdmitx0/dv_cap
+dump_node /sys/class/amhdmitx/amhdmitx0/dv_cap2
 dump_node /sys/class/amhdmitx/amhdmitx0/hdr_cap
+dump_node /sys/class/amhdmitx/amhdmitx0/hdr_cap2
 dump_node /sys/class/amhdmitx/amhdmitx0/attr
 dump_node /sys/class/amdolby_vision/dv_mode
 dump_node /sys/class/amvecm/hdr_dbg
@@ -28,6 +34,8 @@ dump_node /sys/module/aml_media/parameters/dolby_vision_policy
 dump_node /sys/module/aml_media/parameters/dolby_vision_ll_policy
 dump_node /sys/class/amdolby_vision/src_format
 dump_node /sys/module/aml_media/parameters/dolby_vision_enable
+echo "lsmod | grep dovi:"
+lsmod | grep dovi
 
 echo "################################Dump DI information ###################################"
 #mount -t debugfs none /sys/kernel/debug/
@@ -51,6 +59,7 @@ dump_node /sys/class/video/frame_width
 dump_node /sys/class/video/frame_height
 dump_node /sys/class/video/axis
 dump_node /sys/class/video/crop
+dump_node /sys/class/video/screen_mode
 dump_node /sys/class/video/video_state
 
 echo "################################Dump vdin information #################################"
