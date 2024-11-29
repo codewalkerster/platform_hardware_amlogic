@@ -271,6 +271,8 @@ private:
     int mWakeEnabled;
     hdmi_cec_event_t* mCachedRoutingEvent;
     bool mIsReboot;
+    // Whether the hotplug event is reported when it's awake.
+    bool mHotplugOutAwake;
 };
 
 

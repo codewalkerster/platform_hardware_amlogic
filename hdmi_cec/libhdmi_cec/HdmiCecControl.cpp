@@ -181,6 +181,7 @@ HdmiCecControl::HdmiCecControl(int event)
     mVendorEventListener = NULL;
     mWakeEnabled = 1;
     mIsReboot = false;
+    mHotplugOutAwake = false;
     property_get(PROPERTY_OSD_NAME, mCecDevice.device_name, mCecDevice.is_playback ? "BOX" : "TV");
     LOGI("osd name %s", mCecDevice.device_name);
 
@@ -1116,6 +1117,15 @@ void HdmiCecControl::checkConnectStatus()
                     mCecDevice.port_data[i].port_id, connect, prevStatus, isWake);
             if (mCecDevice.is_playback) {
                 setProperty(PROPERTY_BOX_CONNECTION_STATE, connect ? "1" : "0");
+
+                if (!connect) {
+                    // Hotplug out when it's awake.
+                    mHotplugOutAwake = isWake;
+                } else if (!isWake && mHotplugOutAwake) {
+                    // Hotplug in event when it's alseep.
+                    LOGI("Report hotplug in event in sleep");
+                    isWake = true;
+                }
             }
             if (mEventListener != NULL && mCecDevice.is_cec_enabled && isWake) {
                 event.eventType = HDMI_EVENT_HOT_PLUG;
