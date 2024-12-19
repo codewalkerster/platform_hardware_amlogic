@@ -218,6 +218,7 @@ LOCAL_REQUIRED_MODULES := $(TA_UUID)
 LOCAL_REQUIRED_MODULES += android.hardware.hardware_keystore.amlogic.xml
 LOCAL_REQUIRED_MODULES += provision_devid_demo
 ifneq ($(NO_RKP_HAL), true)
+LOCAL_REQUIRED_MODULES += rkp_factory_extraction_tool
 LOCAL_VINTF_FRAGMENTS := keymint/android.hardware.security.keymint-service.amlogic.xml
 else
 LOCAL_VINTF_FRAGMENTS := keymint/android.hardware.security.keymint-service-no-rkp.amlogic.xml
