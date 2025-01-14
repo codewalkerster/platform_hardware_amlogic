@@ -261,6 +261,8 @@ ndk::ScopedAStatus Dumpstate::dumpstateBoard(const std::vector<::ndk::ScopedFile
             return dumpstateBoardImpl(fd, false);
 
         case IDumpstateDevice::DumpstateMode::INTERACTIVE:
+            return dumpstateBoardImpl(fd, false);
+
         case IDumpstateDevice::DumpstateMode::REMOTE:
         case IDumpstateDevice::DumpstateMode::WEAR:
         case IDumpstateDevice::DumpstateMode::CONNECTIVITY:
