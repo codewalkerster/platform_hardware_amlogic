@@ -279,9 +279,6 @@ status_t EmulatedFakeCamera3::connectCamera(hw_device_t** device) {
     }
     mSensor->setFacing(mFacingBack);
     CAMHAL_LOGD("mSensor setFacing=%d\n", mFacingBack);
-    if (mSensor -> getOutputFormat() == V4L2_PIX_FMT_YUYV || mSensor -> isNeedDump()) {
-        mUseHWdec = false;
-    }
     mSensor->getSupportChannels(mSensorSupportChns);
     mReadoutThread = new ReadoutThread(this);
     if (mJpegCompressor == nullptr ) mJpegCompressor = new JpegCompressor();
@@ -731,7 +728,11 @@ status_t EmulatedFakeCamera3::configureStreams(
             pixelfmt = mSensor->halFormatToSensorFormat(pixelfmt);
             mSensor->setOutputFormat(width, height, pixelfmt, channel_preview);
             mSensor->streamOn(channel_preview);
-            CAMHAL_LOGD("width=%d, height=%d, pixelfmt=%.4s\n", width, height, (char*)&pixelfmt);
+            if (mSensor -> getOutputFormat() == V4L2_PIX_FMT_YUYV || mSensor -> isNeedDump()) {
+                mUseHWdec = false;
+            }
+            CAMHAL_LOGD("width=%d, height=%d, pixelfmt=%.4s, isUseHWdec=%d\n",
+                width, height, (char*)&pixelfmt, mUseHWdec);
         }
 
         if (isRestartRec) {
@@ -1468,7 +1469,6 @@ status_t EmulatedFakeCamera3::processCaptureRequest(
 
       bool     needJpeg = false;
       ssize_t jpegbuffersize;
-
       exposureTime = settings.find(ANDROID_SENSOR_EXPOSURE_TIME).data.i64[0];
       //frameDuration = settings.find(ANDROID_SENSOR_FRAME_DURATION).data.i64[0];
       sensitivity = settings.find(ANDROID_SENSOR_SENSITIVITY).data.i32[0];
