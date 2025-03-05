@@ -24,6 +24,7 @@
 
 //#include <system/window.h>
 #include <hardware/camera2.h>
+#include <linux/videodev2.h>
 #include <utils/Vector.h>
 #include <CameraMetadata.h>
 #include "amlogic_camera.h"
@@ -52,6 +53,13 @@ struct StreamBuffer {
     };
     static bool comp_less (const StreamBuffer &a, const StreamBuffer &b) {
         return a.width < b.width;
+    };
+    int get_real_format() const {
+        if (format == HAL_PIXEL_FORMAT_YCbCr_420_888)
+            return V4L2_PIX_FMT_NV12;
+        else if (format == HAL_PIXEL_FORMAT_YCrCb_420_SP)
+            return V4L2_PIX_FMT_NV21;
+        return -1;
     };
 };
 typedef Vector<StreamBuffer> Buffers;

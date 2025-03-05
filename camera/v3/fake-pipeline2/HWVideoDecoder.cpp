@@ -1421,8 +1421,14 @@ int HWVideoDecoderImpl::syncDecode(int in_fd, uint8_t*in_src, uint32_t in_size, 
                             mVICP->vicp_keep_ration_scale(b[i].share_fd, VICP_COLOR_FMT_YCrCb_420_SP_NV21, b[i].width, b[i].height,
                                                    dec_out_fd, mDqWidth, mDqHeight, mFormatWidth, mFormatHeight);
 #else
-                            mGE2D->ge2d_keep_ration_scale(b[i].share_fd, PIXEL_FORMAT_YCbCr_420_SP_NV12, b[i].width, b[i].height,
-                                                   dec_out_fd, mDqWidth, mDqHeight, mFormatWidth, mFormatHeight, b[i].stride);
+                            if (b[i].get_real_format() == V4L2_PIX_FMT_NV12)
+                                mGE2D->ge2d_keep_ration_scale(b[i].share_fd, PIXEL_FORMAT_YCbCr_420_SP_NV12, b[i].width, b[i].height,
+                                                   dec_out_fd, PIXEL_FORMAT_YCrCb_420_SP, mDqWidth, mDqHeight, mFormatWidth, mFormatHeight, b[i].stride);
+                            else if (b[i].get_real_format() == V4L2_PIX_FMT_NV21)
+                                mGE2D->ge2d_keep_ration_scale(b[i].share_fd, PIXEL_FORMAT_YCrCb_420_SP, b[i].width, b[i].height,
+                                                   dec_out_fd, PIXEL_FORMAT_YCrCb_420_SP, mDqWidth, mDqHeight, mFormatWidth, mFormatHeight, b[i].stride);
+                            else
+                                CAMHAL_LOGE("%s:not yuv supported format",__FUNCTION__);
                             mGE2D->doRotationAndMirror(b[i]);
 #endif
                             } else {
@@ -1549,8 +1555,14 @@ int HWVideoDecoderImpl::asyncDecodeDequeueOutput( Vector<StreamBuffer>& b, bool 
                                 mVICP->vicp_keep_ration_scale(b[i].share_fd, VICP_COLOR_FMT_YCrCb_420_SP_NV21, b[i].width, b[i].height,
                                                        dec_out_fd, mDqWidth, mDqHeight, mFormatWidth, mFormatHeight);
 #else
-                                mGE2D->ge2d_keep_ration_scale(b[i].share_fd, PIXEL_FORMAT_YCbCr_420_SP_NV12, b[i].width, b[i].height,
-                                                       dec_out_fd, mDqWidth, mDqHeight, mFormatWidth, mFormatHeight, b[i].stride);
+                                if (b[i].get_real_format() == V4L2_PIX_FMT_NV12)
+                                    mGE2D->ge2d_keep_ration_scale(b[i].share_fd, PIXEL_FORMAT_YCbCr_420_SP_NV12, b[i].width, b[i].height,
+                                                       dec_out_fd, PIXEL_FORMAT_YCrCb_420_SP, mDqWidth, mDqHeight, mFormatWidth, mFormatHeight, b[i].stride);
+                                else if (b[i].get_real_format() == V4L2_PIX_FMT_NV21)
+                                    mGE2D->ge2d_keep_ration_scale(b[i].share_fd, PIXEL_FORMAT_YCrCb_420_SP, b[i].width, b[i].height,
+                                                       dec_out_fd, PIXEL_FORMAT_YCrCb_420_SP, mDqWidth, mDqHeight, mFormatWidth, mFormatHeight, b[i].stride);
+                                else
+                                    CAMHAL_LOGE("%s:not yuv supported format",__FUNCTION__);
                                 mGE2D->doRotationAndMirror(b[i]);
 #endif
                            } else {

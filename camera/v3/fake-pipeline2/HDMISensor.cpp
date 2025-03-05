@@ -594,8 +594,14 @@ void HDMISensor::captureNV21(Vector<StreamBuffer>& b, uint32_t gain) {
                     mPreDewarpInfo[port].i_height = height;
 #endif
                 }else {
-                    mGE2D->ge2d_keep_ration_scale(b[i].share_fd, PIXEL_FORMAT_YCbCr_420_SP_NV12, b[i].width, b[i].height,
-                                                  output_info.dma_fd, width, height, b[i].stride);
+                    if (b[i].get_real_format() == V4L2_PIX_FMT_NV12)
+                        mGE2D->ge2d_keep_ration_scale(b[i].share_fd, PIXEL_FORMAT_YCbCr_420_SP_NV12, b[i].width, b[i].height,
+                                                      output_info.dma_fd, PIXEL_FORMAT_YCrCb_420_SP, width, height, b[i].stride);
+                    else if (b[i].get_real_format() == V4L2_PIX_FMT_NV21)
+                        mGE2D->ge2d_keep_ration_scale(b[i].share_fd, PIXEL_FORMAT_YCrCb_420_SP, b[i].width, b[i].height,
+                                                      output_info.dma_fd, PIXEL_FORMAT_YCrCb_420_SP, width, height, b[i].stride);
+                    else
+                        CAMHAL_LOGE("%s:not yuv supported format",__FUNCTION__);
                     mGE2D->doRotationAndMirror(b[i]);
                 }
                 if (property_get_bool("vendor.camhal.hdmi.dump", false)) {
