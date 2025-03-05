@@ -36,6 +36,7 @@
 
 #include <stdio.h>
 #include <stdlib.h>
+#include <pthread.h>
 #include <errno.h>
 #include <sys/stat.h>
 #include <unistd.h>
@@ -93,12 +94,39 @@ static uint32_t CRC32(const uint8_t* buf, size_t size) {
   return ~ret;
 }
 
+void threadFunction(void) {
+ std::string completed_prop = android::base::GetProperty("sys.boot_completed", "");
+ int count = 3;
+
+ LOG(INFO) << "sys.boot_completed in thread: " << completed_prop;
+
+ while (completed_prop != "1" && count > 0) {
+   sleep(1);
+   LOG(INFO) << "count: " << count;
+   completed_prop = android::base::GetProperty("sys.boot_completed", "");
+   LOG(INFO) << "sys.boot_completed in thread: " << completed_prop;
+   count--;
+ }
+
+ if (android_reboot(ANDROID_RB_RESTART2, 0, nullptr) == -1) {
+   LOG(ERROR) << "Failed to reboot.";
+   return;
+ }
+
+ while (true) pause();
+ return;
+}
+
+
 static int reboot_device() {
-  if (android_reboot(ANDROID_RB_RESTART2, 0, nullptr) == -1) {
-    LOG(ERROR) << "Failed to reboot.";
+  pthread_t pid;
+
+  if (pthread_create(&pid, NULL, (void* (*)(void*))threadFunction, NULL) != 0) {
+    LOG(ERROR) << "can't create pthread";
     return -1;
   }
-  while (true) pause();
+
+  return 0;
 }
 
 // Return the little-endian representation of the CRC-32 of the first fields
