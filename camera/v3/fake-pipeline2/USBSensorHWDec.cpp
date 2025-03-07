@@ -1759,10 +1759,12 @@ int USBSensorHWDec::captureNewImage() {
                 mNextCapturedBuffers->push_back(bAux);
                 break;
             case HAL_PIXEL_FORMAT_YCrCb_420_SP:
-            case HAL_PIXEL_FORMAT_YCbCr_420_888:
                 captureNV21UsbSensor(b, gain, needSensorOutBuffer);
                 break;
-
+            case HAL_PIXEL_FORMAT_YCbCr_420_888:
+                captureNV21UsbSensor(b, gain, needSensorOutBuffer);
+                mCameraUtil->NV21ToNV12(b.img, b.stride, b.height);
+                break;
             default:
                 CAMHAL_LOGE("%s: UnSupported format 0x%x, no output", __FUNCTION__,
                         b.format);

@@ -297,6 +297,19 @@ void CameraUtil::ReSizeNV21(uint8_t *src, uint8_t *img,
     if (!VT_resizeFrame_Video_opt2_lp(&input, &output, NULL, 0))
         CAMHAL_LOGE("Scale NV21 frame down failed!\n");
 }
+
+void CameraUtil::NV21ToNV12(uint8_t *src, uint32_t stride, uint32_t height)
+{
+    uint8_t *pUVBuffer = src + stride * height;
+    int total_uv_bytes = stride * height / 2;
+
+    for (int processed_bytes = 0; processed_bytes < total_uv_bytes; processed_bytes += 2) {
+        uint16_t *uv = (uint16_t*)(pUVBuffer + processed_bytes);
+        uint16_t value = *uv;
+        *uv = (value << 8) | (value >> 8);
+    }
+}
+
 int CameraUtil::ScaleYV12(uint8_t* src, int src_width, int src_height,
     uint8_t* dst, int dst_width, int dst_height) {
                 CAMHAL_LOGI("Scale YV12 frame down \n");
@@ -313,10 +326,11 @@ int CameraUtil::ScaleYV12(uint8_t* src, int src_width, int src_height,
                 CAMHAL_LOGE("Scale YV12 frame down failed!\n");
             return ret;
 }
+
 int CameraUtil::MJPEGToNV21(uint8_t* src, int src_len,int src_width, int src_height,
                 uint8_t* dst, int dst_width, int dst_height, int dst_stride, uint8_t* tmpBuf) {
 
-    #if ANDROID_PLATFORM_SDK_VERSION > 23
+#if ANDROID_PLATFORM_SDK_VERSION > 23
                 uint8_t *vBuffer = new uint8_t[src_width * src_height / 4];
                 if (vBuffer == NULL) {
                     CAMHAL_LOGE("alloc temporary v buffer failed\n");
@@ -343,7 +357,7 @@ int CameraUtil::MJPEGToNV21(uint8_t* src, int src_len,int src_width, int src_hei
                     for (int i = 0; i < (int)(dst_stride * src_height / 4); i++) {
                         *pUVBuffer++ = *(vBuffer + i);
                         *pUVBuffer++ = *(uBuffer + i);
-                        }
+                    }
                     delete []vBuffer;
                     delete []uBuffer;
                 }else{
@@ -366,6 +380,7 @@ int CameraUtil::MJPEGToNV21(uint8_t* src, int src_len,int src_width, int src_hei
                         dst_height, dst_stride,src_width,src_height);
                 }
 #else
+// ANDROID_PLATFORM_SDK_VERSION <= 23; below android 6.0(Marshmallow), not support any more.
                 if (ConvertMjpegToNV21(src, src_len, tmpBuf,
                             src_width, tmpBuf + src_width * src_height,
                             (src_width + 1) / 2, src_width,src_height, src_width,
@@ -396,7 +411,7 @@ int CameraUtil::MJPEGToRGB(uint8_t* src, int src_len,int src_width, int src_heig
                         return -1;
         }
 
-    #if ANDROID_PLATFORM_SDK_VERSION > 23
+#if ANDROID_PLATFORM_SDK_VERSION > 23
             uint8_t *vBuffer = new uint8_t[src_width * src_height / 4];
             if (vBuffer == NULL)
                 CAMHAL_LOGE("alloc temporary v buffer failed\n");
@@ -431,6 +446,7 @@ int CameraUtil::MJPEGToRGB(uint8_t* src, int src_len,int src_width, int src_heig
                     delete [] tmpBuf;
             }
 #else
+// ANDROID_PLATFORM_SDK_VERSION <= 23; below android 6.0(Marshmallow), not support any more.
             if (ConvertMjpegToNV21(src, src_len, tmpBuf,
                 src_width, tmpBuf + src_width * src_height, (src_width + 1) / 2, src_width,
                 src_height, src_width, src_height, libyuv::FOURCC_MJPG) != 0) {

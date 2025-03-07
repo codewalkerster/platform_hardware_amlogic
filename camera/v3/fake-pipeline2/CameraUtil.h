@@ -38,6 +38,8 @@ class CameraUtil {
 				uint32_t stride,uint32_t input_width,
 				uint32_t input_height);
 
+		void NV21ToNV12(uint8_t *src,uint32_t stride, uint32_t height);
+
 		int MJPEGToRGB(uint8_t* src, int src_len,int src_width, int src_height,
 				uint8_t* dst);
 
