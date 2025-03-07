@@ -1784,8 +1784,11 @@ int USBSensor::captureNewImage() {
                 mNextCapturedBuffers->push_back(bAux);
                 break;
             case HAL_PIXEL_FORMAT_YCrCb_420_SP:
+                captureNV21UsbSensor(b, gain, needSensorOutBuffer);
+                break;
             case HAL_PIXEL_FORMAT_YCbCr_420_888:
                 captureNV21UsbSensor(b, gain, needSensorOutBuffer);
+                mCameraUtil->NV21ToNV12(b.img, b.stride, b.height);
                 break;
             case HAL_PIXEL_FORMAT_YV12:
                 captureYV12(b, gain);
