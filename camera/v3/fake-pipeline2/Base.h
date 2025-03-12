@@ -55,9 +55,9 @@ struct StreamBuffer {
         return a.width < b.width;
     };
     int get_real_format() const {
-        if (format == HAL_PIXEL_FORMAT_YCbCr_420_888)
+        if (format == HAL_PIXEL_FORMAT_YCbCr_420_888 || format == V4L2_PIX_FMT_NV12)
             return V4L2_PIX_FMT_NV12;
-        else if (format == HAL_PIXEL_FORMAT_YCrCb_420_SP)
+        else if (format == HAL_PIXEL_FORMAT_YCrCb_420_SP || format == V4L2_PIX_FMT_NV21)
             return V4L2_PIX_FMT_NV21;
         return -1;
     };

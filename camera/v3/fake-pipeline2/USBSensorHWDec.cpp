@@ -1630,15 +1630,6 @@ int USBSensorHWDec::captureNewImage() {
     int solidBufferFd = -1;
     if (mUseStreamBufVecForDecoder) {
         bool isJpegRequest = false;
-        uint32_t preview_stream_pixelfmt;
-        for (size_t i = 0; i < mNextCapturedBuffers->size(); i++) {
-            const StreamBuffer &b = (*mNextCapturedBuffers)[i];
-            if (b.format == HAL_PIXEL_FORMAT_BLOB)
-                isJpegRequest = true;
-            else
-                preview_stream_pixelfmt = b.format;
-        }
-
         for (size_t i = 0; i < mNextCapturedBuffers->size(); i++) {
             const StreamBuffer &b = (*mNextCapturedBuffers)[i];
             CAMHAL_LOGVV("Sensor capturing buffer %zu: stream %d,"
@@ -1676,7 +1667,7 @@ int USBSensorHWDec::captureNewImage() {
                     if (pixelfmt == V4L2_PIX_FMT_YVU420) {
                         pixelfmt = HAL_PIXEL_FORMAT_YV12;
                     } else {
-                        pixelfmt = preview_stream_pixelfmt;
+                        pixelfmt = V4L2_PIX_FMT_NV21;
                     }
                 }
                 bAux.streamId = 0;
@@ -1703,6 +1694,7 @@ int USBSensorHWDec::captureNewImage() {
                 }
 #endif
                 mNextCapturedBuffers->push_back(bAux);
+                isJpegRequest = true;
             }
         }
         if (mTestPatternMode != ANDROID_SENSOR_TEST_PATTERN_MODE_SOLID_COLOR) {
