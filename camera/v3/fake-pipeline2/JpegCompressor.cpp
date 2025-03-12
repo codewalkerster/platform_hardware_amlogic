@@ -777,6 +777,10 @@ static uint32_t calc_frame_length(int format, uint32_t width, uint32_t height)
         case HAL_PIXEL_FORMAT_YCbCr_422_I:
             length = width * height * 2;
             break;
+        case V4L2_PIX_FMT_NV12:
+        case V4L2_PIX_FMT_NV21:
+            length = width * height * 3/2;
+            break;
         default:
             length = width * height * 3/2;
             break;
@@ -819,7 +823,7 @@ size_t encode(params* input) {
         goto exit;
     }
 
-    if ((android_pixel_format_t)input->format == HAL_PIXEL_FORMAT_YCrCb_420_SP) {
+    if ((android_pixel_format_t)input->format == V4L2_PIX_FMT_NV21) {
         informat = YUV420SP;
         bpp = 1;
         if ((in_width != out_width) || (in_height != out_height)) {
@@ -976,6 +980,7 @@ status_t JpegCompressor::compress() {
             format = FMT_RGB888;
             break;
         case HAL_PIXEL_FORMAT_YCrCb_420_SP:
+        case V4L2_PIX_FMT_NV21:
             CAMHAL_LOGD("%s:format is NV21",__FUNCTION__);
             format = FMT_NV21;
             break;
