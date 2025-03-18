@@ -548,12 +548,12 @@ bool JpegCompressor::threadLoop() {
     if (dump) {
         // debug. dump
         FILE* fp = NULL;
-        sprintf(path, "/data/vendor/camera/jpeg-in-%dx%d-%d.yuv", mAuxBuffer.width, mAuxBuffer.height, index);
+        sprintf(path, "/data/vendor/camera/jpeg-in-%dx%d-%d.yuv", mAuxBuffer.stride, mAuxBuffer.height, index);
         fp = fopen(path, "ab+");
         if (!fp) {
             CAMHAL_LOGE("open file fail, error: %s !!!",strerror(errno));
         } else {
-            fwrite((void*)mAuxBuffer.img, 1, mAuxBuffer.width * mAuxBuffer.height *3/2 ,fp);
+            fwrite((void*)mAuxBuffer.img, 1, mAuxBuffer.stride * mAuxBuffer.height *3/2 ,fp);
             fclose(fp);
         }
     }

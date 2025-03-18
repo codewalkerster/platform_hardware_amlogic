@@ -16,22 +16,6 @@ ROTATION_MAX represent supported rotation angle.
 [0,90,180,270]
 */
 #define ROTATION_MAX 4
-enum dewarpcam2port {
-    DEWARP_CAM2PORT_PREVIEW = 0,
-    DEWARP_CAM2PORT_CAPTURE,
-    DEWARP_CAM2PORT_RECORD,
-    DEWARP_CAM2PORT_DPTZ_PREVIEW,
-    DEWARP_CAM2PORT_USB_PREVIEW,
-    DEWARP_CAM2PORT_USB_RECORD,
-    DEWARP_CAM2PORT_USB_CAPTURE,
-    DEWARP_CAM2PORT_USB_PREVIEW_1,
-    DEWARP_CAM2PORT_USB_RECORD_1,
-    DEWARP_CAM2PORT_USB_CAPTURE_1,
-    DEWARP_CAM2PORT_USB_TRANSITION,
-    DEWARP_CAM2PORT_VDIN_PREVIEW,
-    DEWARP_CAM2PORT_VDIN_RECORD,
-    DEWARP_CAM2PORT_VDIN_CAPTURE,
-};
 
 enum Rotation    {
     ROTATION_0 = 0,
@@ -73,6 +57,8 @@ namespace android {
             static DeWarp* getInstance(int groupId,int proj_mode,Rotation rotation);
             static void putInstance(std::pair<int, int> range);
             static void putInstance(int groupId);
+            static void add_dewarp_port();
+            static dewarpcam2port get_dewarp_port(int cameraId, int ch);
             void gdc_do_fisheye_correction() ;
             static void set_src_ROI(int x, int y, int w, int h);
             void setCrop();
@@ -82,6 +68,7 @@ namespace android {
             int mProj_mode = -1;
             Rotation mRotation;
             int mGroupId = -1;
+            static std::vector<dewarpcam2port> dewarpPort;
     };
 }
 #endif

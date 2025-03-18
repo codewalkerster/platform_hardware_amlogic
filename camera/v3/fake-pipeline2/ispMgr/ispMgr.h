@@ -76,6 +76,7 @@ class IspMgr: public Thread, public virtual RefBase {
     status_t stop();
     status_t getAWBInfo(void* data);
     status_t getAEInfo(void* data);
+    status_t setMaxfps(int fps);
   public:
     static struct ispIF  mIspIF;
   protected:

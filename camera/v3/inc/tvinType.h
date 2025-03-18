@@ -203,17 +203,52 @@ enum tvin_aspect_ratio_e {
 };
 
 struct tvin_info_s {
-    enum tvin_trans_fmt    trans_fmt;
-    enum tvin_sig_fmt_e    fmt;
+    enum tvin_trans_fmt trans_fmt;
+    enum tvin_sig_fmt_e fmt;
     enum tvin_sig_status_e status;
-    enum tvin_color_fmt_e       cfmt;
-    unsigned int      fps;
-    unsigned int      is_dvi;
-    unsigned int hdr_info;
+    enum tvin_color_fmt_e cfmt;
+    unsigned int fps;
+    unsigned int is_dvi;
+
+    /*
+     * bit 30: is_dv
+     * bit 29: present_flag
+     * bit 28-26: video_format
+     *	"component", "PAL", "NTSC", "SECAM", "MAC", "unspecified"
+     * bit 25: range "limited", "full_range"
+     * bit 24: color_description_present_flag
+     * bit 23-16: color_primaries
+     *	"unknown", "bt709", "undef", "bt601", "bt470m", "bt470bg",
+     *	"smpte170m", "smpte240m", "film", "bt2020"
+     * bit 15-8: transfer_characteristic
+     *	"unknown", "bt709", "undef", "bt601", "bt470m", "bt470bg",
+     *	"smpte170m", "smpte240m", "linear", "log100", "log316",
+     *	"iec61966-2-4", "bt1361e", "iec61966-2-1", "bt2020-10",
+     *	"bt2020-12", "smpte-st-2084", "smpte-st-428"
+     * bit 7-0: matrix_coefficient
+     *	"GBR", "bt709", "undef", "bt601", "fcc", "bt470bg",
+     *	"smpte170m", "smpte240m", "YCgCo", "bt2020nc", "bt2020c"
+     */
+    unsigned int signal_type;
+
+    /*
+     * bit[8-11]:modify to avi_colorimetry 00:NULL  01:SMPTE_ST_170    10:BT_709
+     * bit[12-15] modify to avi_ext_colorimetry 00:XVYCC_601  01:XVYCC_709  10:SYCC_601
+     * 11:OPYCC_601  100:OP_RGB  101:BT_2020_YCC  110:BI_2020_RGBORYCC
+     * 111:SMPTE_ST_2113_P3D65RGB  1000:SMPTE_ST_2113_P3DCIRGB
+     * 1001:BT_2100
+     */
     unsigned int input_colorimetry;
     enum tvin_aspect_ratio_e aspect_ratio;
-    unsigned char amdolby_vision;
+    /*
+     * 0:no dv 1:visf 2:emp
+     */
+    unsigned char dolby_vision;
+    /*
+     * 0:sink-led 1:source-led
+     */
     unsigned char low_latency;
+
 };
 #define TVIN_IOC_MAGIC 'T'
 #define TVIN_IOC_G_SIG_INFO _IOR(TVIN_IOC_MAGIC, 0x07, struct tvin_info_s)

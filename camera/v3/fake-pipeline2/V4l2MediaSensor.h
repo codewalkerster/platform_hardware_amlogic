@@ -50,6 +50,7 @@ namespace android {
             status_t force_reset_sensor() override;
             int captureNewImage() override;
             //-------dummy function-------
+            status_t setMaxfps(int fps) override;
             int getZoom(int *zoomMin, int *zoomMax, int *zoomStep) override;
             int setZoom(int zoomValue) override;
             status_t setEffect(uint8_t effect) override;

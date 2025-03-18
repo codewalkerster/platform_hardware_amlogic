@@ -160,6 +160,7 @@ class Sensor: public Thread, public virtual RefBase {
      */
 
     bool isUnpluged();
+    virtual status_t setMaxfps(int fps);
     virtual int getZoom(int *zoomMin, int *zoomMax, int *zoomStep);
     virtual int setZoom(int zoomValue);
     virtual int getExposure(int *mamExp, int *minExp, int *def, camera_metadata_rational *step);

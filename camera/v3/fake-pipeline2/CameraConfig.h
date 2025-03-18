@@ -7,10 +7,11 @@
 #define __CAMERA_CONFIG_H__
 
 #include <stdio.h>
-
 #include "media-v4l2/mediaApi.h"
+#include "Base.h"
 
-#define ISP_PORT_NUM 14
+#define USB_CAMERA_NUM 4
+#define ISP_PORT_NUM (3 * USB_CAMERA_NUM + android::USB_BASE_PORT)
 
 namespace android {
     struct CropInfo {
@@ -35,6 +36,7 @@ namespace android {
                 uint32_t i_height;
                 CropInfo mCropInfo;
                 bool facingback;
+                bool uvSwapEnable;
             };
             struct GDCParam mGDCParam;
             struct GE2DParam {
@@ -60,12 +62,15 @@ namespace android {
             void setCropInfo(CropInfo      inputCropInfo);
             inline bool getFacing(void) { return mGDCParam.facingback;}
             inline void setFacing(bool __facing) { mGDCParam.facingback = __facing; }
+            inline bool getuvSwapEnable(void) { return mGDCParam.uvSwapEnable;}
+            inline void setuvSwapEnable(bool __swap) { mGDCParam.uvSwapEnable = __swap; }
         private:
             CameraConfig(int groupId);
             ~CameraConfig();
         public:
             static CameraConfig* getInstance(int groupId);
             static void deleteInstance(std::pair<int, int> range);
+            static void deleteInstance(int groupId);
     };
 }
 

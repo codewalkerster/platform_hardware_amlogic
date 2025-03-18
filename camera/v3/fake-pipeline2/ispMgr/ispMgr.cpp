@@ -478,7 +478,9 @@ status_t IspMgr::getAWBInfo(void* data)
         return -1;
     }
     aisp_api_type_t param;
+    memset(&param, 0, sizeof(aisp_api_type_t));
     aml_isp_wb_info_attr _data;
+    memset(&_data, 0, sizeof(aml_isp_wb_info_attr));
     aisp_api_type_t *api_type = &param;
     api_type->u8Direction = AML_CMD_GET;
     api_type->u8CmdType = 0;
@@ -502,7 +504,9 @@ status_t IspMgr::getAEInfo(void* data)
         return -1;
     }
     aisp_api_type_t param;
+    memset(&param, 0, sizeof(aisp_api_type_t));
     aml_isp_exp_info_attr _data;
+    memset(&_data, 0, sizeof(aml_isp_exp_info_attr));
     aisp_api_type_t *api_type = &param;
     api_type->u8Direction = AML_CMD_GET;
     api_type->u8CmdType = 0;
@@ -516,6 +520,29 @@ status_t IspMgr::getAEInfo(void* data)
     return 0;
 }
 
+status_t IspMgr::setMaxfps(int fps)
+{
+    Mutex::Autolock _l(mLock);
+    CAMHAL_LOGI("setMaxfps fps %d", fps);
+    if (mStart == false)
+    {
+        CAMHAL_LOGE("IspMgr not working");
+        return -1;
+    }
+    //set fps
+    aisp_api_type_t param;
+    int ret = 0;
+    memset(&param, 0, sizeof(aisp_api_type_t));
+    aisp_api_type_t *api_type = &param;
+    api_type->u8Direction = AML_CMD_SET;
+    api_type->u8CmdType = 0;
+    api_type->u8CmdId = AML_MBI_ISP_CfgAlgFps;
+    api_type->u32Value = 0;
+    api_type->pRetValue = (uint32_t *)&ret;
+    api_type->pData = (uint32_t *)&fps;
+    (IspMgr::mIspIF.algFwInterface)(mId, api_type);
+    return 0;
+}
 
 status_t IspMgr::pollDevices(const std::vector<struct media_entity *> &devices,
                                 std::vector<struct media_entity *> &activeDevices,

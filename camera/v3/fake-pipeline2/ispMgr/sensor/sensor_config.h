@@ -48,11 +48,10 @@ struct sensorConfig {
     ALG_SENSOR_EXP_FUNC_S expFunc;
     void (*cmos_set_sensor_entity)(int ViPipe, struct media_entity * sensor_ent, int wdr, int fps);
     void (*cmos_get_sensor_calibration)(int ViPipe, struct media_entity *sensor_ent, aisp_calib_info_t *calib);
-
+    void (*cmos_clean_up)(int ViPipe);
 #if defined(PREVIEW_DEWARP_ENABLE) || defined(PICTURE_DEWARP_ENABLE)
     void (*cmos_get_sensor_gdc_parameter)(struct sensorConfig *cfg, GDCInParam in_params, struct dewarp_params *dewarp_params);
 #endif
-    void (*cmos_clean_up)(int ViPipe);
 
     int sensorWidth;// max width
     int sensorHeight;// max height

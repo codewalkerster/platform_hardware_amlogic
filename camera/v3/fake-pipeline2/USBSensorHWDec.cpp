@@ -41,6 +41,78 @@ static const usb_frmsize_discrete_t kUsbAvailablePictureSize[] = {
         {320, 240},
 };
 
+static usb_frmsize_whitelist_t PictureSizeWhiteList[] = {
+    {352, 288, 0, 0},
+    {640, 480, 0, 0},
+    {720, 480, 0, 0},
+    {1280,720, 0, 0},
+};
+
+static void addPictureSizeWhiteList(uint32_t picSizes[], int &count, int start, const uint32_t pixelFormat) {
+    int i, j;
+    uint32_t width  = 0;
+    uint32_t height = 0;
+    int index  = -1;
+
+    for (i = 0; i < ARRAY_SIZE(PictureSizeWhiteList); i++) {
+        width = PictureSizeWhiteList[i].width;
+        height = PictureSizeWhiteList[i].height;
+        bool found = false;
+        index = -1;
+        for (j = start; j < count; j += 4) {
+            if (width * height == picSizes[j + 1] * picSizes[j + 2]) {
+                //the size camera is support
+                PictureSizeWhiteList[i].actualWidth = width;
+                PictureSizeWhiteList[i].actualHeight = height;
+                found = true;
+                break;
+            } else if (width * height > picSizes[j + 1] * picSizes[j + 2]) {
+                if (j == start) // the size is the biggest size so can't resize
+                    return;
+                index = j;
+                PictureSizeWhiteList[i].actualWidth = picSizes[j - 3];
+                PictureSizeWhiteList[i].actualHeight = picSizes[j - 2];
+                found = true;
+                break;
+            } else {
+                continue;
+            }
+        }
+        if (j == count && !found && -1 == index) {
+            // there is no size in picSize and the size is small
+            picSizes[count] = pixelFormat;
+            picSizes[count+1] = width;
+            picSizes[count+2] = height;
+            picSizes[count+3] = ANDROID_SCALER_AVAILABLE_STREAM_CONFIGURATIONS_OUTPUT;
+            count += 4;
+        } else if (-1 != index && found){
+            // there is no size in picSize and the size is middle
+            picSizes[count] = pixelFormat;
+            picSizes[count+3] = ANDROID_SCALER_AVAILABLE_STREAM_CONFIGURATIONS_OUTPUT;
+            int temp = 0;
+            for (temp = count; temp > index; temp -= 4) {
+                picSizes[temp + 1] = picSizes[temp - 3];
+                picSizes[temp + 2] = picSizes[temp - 2];
+            }
+            picSizes[index + 1] = width;
+            picSizes[index + 2] = height;
+            count += 4;
+        }
+    }
+
+
+}
+
+static int isInSizeWhiteList(uint32_t width, uint32_t height) {
+    int i = 0;
+    for (i = 0; i < ARRAY_SIZE(PictureSizeWhiteList); i++) {
+        if (PictureSizeWhiteList[i].width == width && PictureSizeWhiteList[i].height == height
+        && PictureSizeWhiteList[i].actualWidth != 0 && PictureSizeWhiteList[i].actualHeight != 0)
+            return i;
+    }
+    return -1;
+}
+
 static char property[PROPERTY_VALUE_MAX];
 
 static bool IsAvailablePictureSize(const usb_frmsize_discrete_t AvailablePictureSize[], uint32_t width, uint32_t height)
@@ -62,24 +134,45 @@ static bool IsAvailablePictureSize(const usb_frmsize_discrete_t AvailablePicture
     return false;
 }
 
-static bool determineUseH264(const std::vector<streamInfo> streamInfos,
+static int SetSpecificStream(const std::vector<streamInfo> streamInfos,
     const uint32_t width, const uint32_t height)
 {
-    uint32_t base_w = property_get_int32("vendor.media.camera.h264.width", 10000);
-    uint32_t base_h = property_get_int32("vendor.media.camera.h264.height", 10000);
-    CAMHAL_LOGV("base width %d, base height %d", base_w, base_h);
-    if (property_get_bool("vendor.media.camera.force.h264", false)) {
-        CAMHAL_LOGD("default choose h264");
-        return true;
-    } else if ((width >= base_w) && (height >= base_h)) {
-        auto it = std::find_if(streamInfos.begin(), streamInfos.end(),
-            [&width, &height](const streamInfo info){
-                return (info.mWidth == width && info.mHeight == height &&
-                    info.mPixelformat == V4L2_PIX_FMT_H264);});
-        if (it != streamInfos.end())
-            return true;
+    int specificV4l2OutPixFmt = 0;
+    uint32_t h264_base_w = property_get_int32("vendor.media.camera.h264.width", 10000);
+    uint32_t h264_base_h = property_get_int32("vendor.media.camera.h264.height", 10000);
+    uint32_t h265_base_w = property_get_int32("vendor.media.camera.hevc.width", 10000);
+    uint32_t h265_base_h = property_get_int32("vendor.media.camera.hevc.height", 10000);
+    CAMHAL_LOGV("h264 base size %dx%d, h265 base size %dx%d", h264_base_w, h264_base_h,
+        h265_base_w, h265_base_h);
+
+    specificV4l2OutPixFmt = ((property_get_bool("vendor.media.camera.force.h264", false) ||
+        [&width, &height, &h264_base_w, &h264_base_h, &streamInfos]() -> bool{
+            if ((width >= h264_base_w) && (height >= h264_base_h)) {
+                auto it = std::find_if(streamInfos.begin(), streamInfos.end(),
+                    [&width, &height](const streamInfo info){
+                        return (info.mWidth == width && info.mHeight == height &&
+                            info.mPixelformat == V4L2_PIX_FMT_H264);});
+            if (it != streamInfos.end())
+                return true;
+            }
+            return false;}()
+    ) ? V4L2_PIX_FMT_H264 : 0);
+
+    if (specificV4l2OutPixFmt == 0) {
+        specificV4l2OutPixFmt = ((property_get_bool("vendor.media.camera.force.hevc", false) ||
+            [&width, &height, &h265_base_w, &h265_base_h, &streamInfos]() -> bool{
+                if ((width >= h265_base_w) && (height >= h265_base_h)) {
+                    auto it = std::find_if(streamInfos.begin(), streamInfos.end(),
+                        [&width, &height](const streamInfo info){
+                            return (info.mWidth == width && info.mHeight == height &&
+                                info.mPixelformat == V4L2_PIX_FMT_HEVC);});
+                if (it != streamInfos.end())
+                    return true;
+                }
+                return false;}()
+        ) ? V4L2_PIX_FMT_HEVC : 0);
     }
-    return false;
+    return specificV4l2OutPixFmt;
 }
 
 USBSensorHWDec::USBSensorHWDec(int expectedV4l2OutPixFmt)
@@ -263,7 +356,7 @@ status_t USBSensorHWDec::startUp(int idx, bool customizationSensor) {
     }
 
     if (nullptr == mHWDecoder) {
-        mHWDecoder = new HWVideoDecoder();
+        mHWDecoder = new HWVideoDecoder(mOpenCameraID);
         if (nullptr == mHWDecoder) {
             CAMHAL_LOGE("new HWVideoDecoder fail");
         }
@@ -335,17 +428,22 @@ status_t USBSensorHWDec::setOutputFormat(int width, int height,
     int res, ret;
     mFramecount = 0;
     mCurFps = 0;
-    bool isUseH264 = false;
+    int index = isInSizeWhiteList(width, height);
+    if (index >= 0) {
+        width = PictureSizeWhiteList[index].actualWidth;
+        height = PictureSizeWhiteList[index].actualHeight;
+    }
 
     do {
-        if (mExpectedV4l2OutPixFmt != V4L2_PIX_FMT_H264) {
-            isUseH264 = determineUseH264(mStreamInfos, width, height);
-            if (isUseH264) {
-                pixelformat = V4L2_PIX_FMT_H264;
-                mDecoderStreamType = H264_STREAM;
+        if (mExpectedV4l2OutPixFmt != V4L2_PIX_FMT_H264 &&
+            mExpectedV4l2OutPixFmt != V4L2_PIX_FMT_HEVC) {
+            if (SetSpecificStream(mStreamInfos, width, height) != 0) {
+                pixelformat = SetSpecificStream(mStreamInfos, width, height);
+                mDecoderStreamType = (pixelformat == V4L2_PIX_FMT_H264 ?
+                    H264_STREAM : HEVC_STREAM);
                 mHWDecoderWorkMode = ASYNC_DECODE_MODE;
-                CAMHAL_LOGW("force set H264 %dx%d, stream type %d, decoder work mode %d",
-                    width, height, mDecoderStreamType, mHWDecoderWorkMode);
+                CAMHAL_LOGW("force set %.4s %dx%d, stream type %d, decoder work mode %d",
+                    (char*)&pixelformat, width, height, mDecoderStreamType, mHWDecoderWorkMode);
                 break;
             }
         }
@@ -446,8 +544,9 @@ status_t USBSensorHWDec::setOutputFormat(int width, int height,
 
     mExpectedV4l2OutPixFmt = pixelformat;
     gettimeofday(&mTimeStart, NULL);
-    if (pixelformat != V4L2_PIX_FMT_YUYV && pixelformat != V4L2_PIX_FMT_NV21)
+    if (pixelformat != V4L2_PIX_FMT_YUYV && pixelformat != V4L2_PIX_FMT_NV21) {
         initDecoder(width, height, width, height, 4);
+    }
 
     if (ch == channel_capture) {
         mVinfo->picture.format.type = V4L2_BUF_TYPE_VIDEO_CAPTURE;
@@ -465,6 +564,7 @@ status_t USBSensorHWDec::setOutputFormat(int width, int height,
             return res;
         }
     }
+
     if (pixelformat == V4L2_PIX_FMT_YUYV) {
         reAllocSoftwareBuffer(width, height);
     }
@@ -554,13 +654,6 @@ status_t USBSensorHWDec::shutDown() {
     mSensorWorkFlag = false;
     CAMHAL_LOGD("%s: line %d ", __FUNCTION__, __LINE__);
 
-#if defined(PREVIEW_DEWARP_ENABLE) || defined(PICTURE_DEWARP_ENABLE)
-    auto dewarpPortRange = std::make_pair(DEWARP_CAM2PORT_USB_PREVIEW,
-        DEWARP_CAM2PORT_USB_TRANSITION);
-    DeWarp::putInstance(dewarpPortRange);
-    CameraConfig::deleteInstance(dewarpPortRange);
-#endif
-
     if (mHWDecoder && mIsDecoderInit == true) {
         mHWDecoder->deinitialize();
         mIsDecoderInit = false;
@@ -585,19 +678,13 @@ status_t USBSensorHWDec::streamOff(channel ch) {
 
     mVinfo->releasebuf_and_stop_capturing();
 
-#if defined(PREVIEW_DEWARP_ENABLE) || defined(PICTURE_DEWARP_ENABLE)
-    auto dewarpPortRange = std::make_pair(DEWARP_CAM2PORT_USB_PREVIEW,
-        DEWARP_CAM2PORT_USB_TRANSITION);
-    DeWarp::putInstance(dewarpPortRange);
-#endif
-
     // streamoff ->configureStreams->streamon; we need deinitialize decoder here.
     // configure streams with different output size;
     if (mHWDecoder && mIsDecoderInit == true) {
         mHWDecoder->deinitialize();
         mIsDecoderInit = false;
         delete mHWDecoder;
-        mHWDecoder = new HWVideoDecoder();
+        mHWDecoder = new HWVideoDecoder(mOpenCameraID);
     }
 
     return 0;
@@ -1008,10 +1095,18 @@ void USBSensorHWDec::captureNV21UsbSensor(Vector<StreamBuffer>& b, uint32_t gain
                     } else {
                         if (src != nullptr) {
                             if (width == b[i].width && height == b[i].height) {
-                                mCameraUtil->YUYVToNV21(src, b[i].img, width, height);
+                                if (b[i].get_real_format() == V4L2_PIX_FMT_NV21) {
+                                    mCameraUtil->YUYVToNV21(src, b[i].img, width, height);
+                                } else if (b[i].get_real_format() == V4L2_PIX_FMT_NV12) {
+                                    mCameraUtil->YUYVToNV12(src, b[i].img, width, height);
+                                }
                             } else {
                                 // ge2d does not support yuyv. use software.
-                                mCameraUtil->YUYVToNV21(src, mSensorOutBuf.img, width, height);
+                                if (b[i].get_real_format() == V4L2_PIX_FMT_NV21) {
+                                    mCameraUtil->YUYVToNV21(src, mSensorOutBuf.img, width, height);
+                                } else if (b[i].get_real_format() == V4L2_PIX_FMT_NV12) {
+                                    mCameraUtil->YUYVToNV12(src, mSensorOutBuf.img, width, height);
+                                }
                                 mCameraUtil->ReSizeNV21(mSensorOutBuf.img, b[i].img, b[i].width, b[i].height, b[i].stride, width, height);
                             }
                         }
@@ -1237,8 +1332,8 @@ void USBSensorHWDec::getStreamInfo(std::vector<streamInfo> &streamInfos) {
                 CAMHAL_LOGV("index=%d, break\n", i);
                 break;
             }
-            CAMHAL_LOGI("ioctl result fmt %d width %d height %d \n",
-                srcfmt[j], frmsize.discrete.width, frmsize.discrete.height);
+            CAMHAL_LOGI("ioctl result fmt %.4s width %d height %d \n",
+                (char*)&srcfmt[j], frmsize.discrete.width, frmsize.discrete.height);
 
             if (frmsize.type == V4L2_FRMSIZE_TYPE_DISCRETE)
             { // only support this type
@@ -1270,11 +1365,13 @@ void USBSensorHWDec::getStreamInfo(std::vector<streamInfo> &streamInfos) {
                 if (!IsAvailablePictureSize(kUsbAvailablePictureSize, frmsize.discrete.width, frmsize.discrete.height))
                     continue;
 
-                CAMHAL_LOGI("srcfmt %d width %d height %d \n", srcfmt[j], frmsize.discrete.width, frmsize.discrete.height);
+                CAMHAL_LOGI("srcfmt %.4s width %d height %d \n", (char*)&srcfmt[j],
+                    frmsize.discrete.width, frmsize.discrete.height);
 
                 streamInfos.emplace_back(srcfmt[j], frmsize.discrete.width, frmsize.discrete.height);
             }
         }
+
     }
 }
 
@@ -1337,8 +1434,8 @@ int USBSensorHWDec::getStreamConfigurations(uint32_t picSizes[], const int32_t k
                 CAMHAL_LOGD("index=%d, break\n", i);
                 break;
             }
-            CAMHAL_LOGI("ioctl result fmt %d width %d height %d \n",
-                srcfmt[j], frmsize.discrete.width, frmsize.discrete.height);
+            CAMHAL_LOGI("ioctl result fmt %.4s width %d height %d \n",
+                (char*)&srcfmt[j], frmsize.discrete.width, frmsize.discrete.height);
 
             if (frmsize.type == V4L2_FRMSIZE_TYPE_DISCRETE)
             { // only support this type
@@ -1430,6 +1527,7 @@ int USBSensorHWDec::getStreamConfigurations(uint32_t picSizes[], const int32_t k
             }
         }
     }
+    addPictureSizeWhiteList(picSizes, count, START, HAL_PIXEL_FORMAT_IMPLEMENTATION_DEFINED);
     if (count != 0) {
         START = count;
         for (j = 0; j < (int)(sizeof(halPixelFormat) / sizeof(halPixelFormat[0])); j++) {
@@ -1674,7 +1772,7 @@ int USBSensorHWDec::captureNewImage() {
                 bAux.width = b.width;
                 bAux.height = b.height;
                 bAux.format = pixelfmt;
-                bAux.stride = ALIGN(b.width, 32);
+                bAux.stride = b.width;
                 bAux.buffer = NULL;
                 bAux.img = NULL;
                 bAux.share_fd = -1;

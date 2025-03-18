@@ -78,9 +78,6 @@ public:
     bool VICPEnable;
     bool mEnableDewarp;
 #if defined(PREVIEW_DEWARP_ENABLE) || defined(PICTURE_DEWARP_ENABLE)
-    dewarpcam2port mCapturePort;
-    dewarpcam2port mPreviewPort;
-    dewarpcam2port mRecordPort;
     dewarpInfo mPreDewarpInfo[ISP_PORT_NUM];
 #endif
 

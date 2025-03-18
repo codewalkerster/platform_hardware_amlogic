@@ -1764,7 +1764,7 @@ int USBSensor::captureNewImage() {
                     } else if (pixelfmt == V4L2_PIX_FMT_NV21) {
                         pixelfmt = HAL_PIXEL_FORMAT_YCrCb_420_SP;
                     } else if (pixelfmt == V4L2_PIX_FMT_YUYV) {
-                        pixelfmt = HAL_PIXEL_FORMAT_YCbCr_422_I;
+                        pixelfmt = HAL_PIXEL_FORMAT_YCrCb_420_SP;
                     } else {
                         pixelfmt = HAL_PIXEL_FORMAT_YCrCb_420_SP;
                     }
