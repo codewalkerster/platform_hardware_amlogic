@@ -29,6 +29,7 @@ class CameraUtil {
 		void nv21_memcpy_align32(unsigned char *dst, unsigned char *src, int width, int height);
 		void yv12_memcpy_align32(unsigned char *dst, unsigned char *src, int width, int height);
 		void YUYVToNV21(uint8_t *src, uint8_t *dst, int width, int height);
+		void YUYVToNV12(uint8_t *src, uint8_t *dst, int width, int height);
 		void UYVYToNV21(uint8_t *src, uint8_t *dst, int width, int height);
 		void YUYVToYV12(uint8_t *src, uint8_t *dst, int width, int height);
 		void rgb24_memcpy(unsigned char *dst, unsigned char *src, int width, int height);

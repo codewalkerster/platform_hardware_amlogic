@@ -110,6 +110,75 @@ static const usb_frmsize_discrete_t kUsbAvailablePictureSize[] = {
         {320, 240},
 };
 
+static usb_frmsize_whitelist_t PictureSizeWhiteList[] = {
+    {320, 240, 0, 0},
+};
+
+static void addPictureSizeWhiteList(uint32_t picSizes[], int &count, int start, const uint32_t pixelFormat) {
+    int i,j;
+    uint32_t width = 0;
+    uint32_t height = 0;
+    uint32_t index = -1;
+
+    for (i = 0; i < ARRAY_SIZE(PictureSizeWhiteList); i++) {
+        width = PictureSizeWhiteList[i].width;
+        height = PictureSizeWhiteList[i].height;
+        bool searchflag = false;
+        index = -1;
+        for (j = start; j < count; j += 4) {
+            if (width * height == picSizes[j + 1] * picSizes[j + 2]) {
+                //the size camera is support
+                PictureSizeWhiteList[i].actualWidth = width;
+                PictureSizeWhiteList[i].actualHeight = height;
+                searchflag = true;
+                break;
+            } else if (width * height > picSizes[j + 1] * picSizes[j + 2]) {
+                if (j == start) // the size is the biggest size so can't resize
+                    return;
+                index = j;
+                PictureSizeWhiteList[i].actualWidth = picSizes[j - 3];
+                PictureSizeWhiteList[i].actualHeight = picSizes[j - 2];
+                searchflag = true;
+                break;
+            } else {
+                continue;
+            }
+        }
+        if (j == count && !searchflag && -1 == index) {
+            // there is no size in picSize and the size is small
+            picSizes[count] = pixelFormat;
+            picSizes[count+1] = width;
+            picSizes[count+2] = height;
+            picSizes[count+3] = ANDROID_SCALER_AVAILABLE_STREAM_CONFIGURATIONS_OUTPUT;
+            count += 4;
+        } else if (-1 != index && searchflag){
+            // there is no size in picSize and the size is middle
+            picSizes[count] = pixelFormat;
+            picSizes[count+3] = ANDROID_SCALER_AVAILABLE_STREAM_CONFIGURATIONS_OUTPUT;
+            int temp = 0;
+            for (temp = count; temp > index; temp-=4) {
+                picSizes[temp + 1] = picSizes[temp - 3];
+                picSizes[temp + 2] = picSizes[temp - 2];
+            }
+            picSizes[index + 1] = width;
+            picSizes[index + 2] = height;
+            count += 4;
+        }
+    }
+
+}
+
+static int isInSizeWhiteList(uint32_t width, uint32_t height) {
+    int i = 0;
+    for (i = 0; i < ARRAY_SIZE(PictureSizeWhiteList); i++) {
+        if (PictureSizeWhiteList[i].width == width && PictureSizeWhiteList[i].height == height
+        && PictureSizeWhiteList[i].actualWidth != 0 && PictureSizeWhiteList[i].actualHeight != 0)
+            return i;
+    }
+    return -1;
+}
+
+
 /** A few utility functions for math, normal distributions */
 
 // Take advantage of IEEE floating-point format to calculate an approximate
@@ -326,6 +395,12 @@ status_t Sensor::setOutputFormat(int width, int height, int pixelformat, channel
     mFramecount = 0;
     mCurFps = 0;
     gettimeofday(&mTimeStart, NULL);
+
+    int index = isInSizeWhiteList(width, height);
+    if (index >= 0) {
+        width = PictureSizeWhiteList[index].actualWidth;
+        height = PictureSizeWhiteList[index].actualHeight;
+    }
 
     if (ch == channel_capture) {
         vinfo->picture.format.type = V4L2_BUF_TYPE_VIDEO_CAPTURE;
@@ -650,6 +725,12 @@ Scene &Sensor::getScene() {
 
 bool Sensor::isUnpluged() {
     return mUnpluged;
+}
+
+status_t Sensor::setMaxfps(int fps)
+{
+    CAMHAL_LOGD("setMaxfps fps %d", fps);
+    return 0 ;
 }
 
 int Sensor::getZoom(int *zoomMin, int *zoomMax, int *zoomStep)
@@ -1406,7 +1487,7 @@ int Sensor::captureNewImage() {
                     } else if (pixelfmt == V4L2_PIX_FMT_NV21) {
                         pixelfmt = HAL_PIXEL_FORMAT_YCrCb_420_SP;
                     } else if (pixelfmt == V4L2_PIX_FMT_YUYV) {
-                        pixelfmt = HAL_PIXEL_FORMAT_YCbCr_422_I;
+                        pixelfmt = HAL_PIXEL_FORMAT_YCrCb_420_SP;
                     } else {
                         pixelfmt = HAL_PIXEL_FORMAT_YCrCb_420_SP;
                     }
@@ -1534,6 +1615,8 @@ int Sensor::getStreamConfigurations(uint32_t picSizes[], const int32_t kAvailabl
         }
     }
 
+    addPictureSizeWhiteList(picSizes, count, START, HAL_PIXEL_FORMAT_IMPLEMENTATION_DEFINED);
+
     START = count;
     for (i = 0; ; i++) {
         frmsize.index = i;
@@ -1591,6 +1674,8 @@ int Sensor::getStreamConfigurations(uint32_t picSizes[], const int32_t kAvailabl
             count += 4;
         }
     }
+
+    addPictureSizeWhiteList(picSizes, count, START, HAL_PIXEL_FORMAT_YCbCr_420_888);
 
     uint32_t jpgSrcfmt[] = {
         V4L2_PIX_FMT_RGB24,
@@ -1670,6 +1755,8 @@ int Sensor::getStreamConfigurations(uint32_t picSizes[], const int32_t kAvailabl
         if (frmsize.index > 0)
             break;
     }
+
+    addPictureSizeWhiteList(picSizes, count, START, HAL_PIXEL_FORMAT_BLOB);
 
     if (frmsize.index == 0)
         CAMHAL_LOGD("no support pixel fmt for jpeg");
@@ -2126,7 +2213,6 @@ void Sensor::captureNV21(StreamBuffer b, uint32_t gain) {
         } else if (vinfo->preview.format.fmt.pix.pixelformat == V4L2_PIX_FMT_YUYV) {
             uint32_t width = vinfo->preview.format.fmt.pix.width;
             uint32_t height = vinfo->preview.format.fmt.pix.height;
-
             if ((width == b.width) && (height == b.height)) {
                 memcpy(b.img, src, b.stride * b.height * 3/2);
             } else {
@@ -2632,17 +2718,7 @@ bool Sensor::isNeedDump() {
     return false;
 }
 
-void Sensor::dump(int fd) {
-    String8 result;
-    result = String8::format("%s, sensor preview information: \n", __FILE__);
-    result.appendFormat("camera preview fps: %.2f\n", mCurFps);
-    result.appendFormat("camera preview width: %d , height =%d\n",
-            vinfo->preview.format.fmt.pix.width,vinfo->preview.format.fmt.pix.height);
-
-    result.appendFormat("camera preview format: %.4s\n\n",
-            (char *) &vinfo->preview.format.fmt.pix.pixelformat);
-
-    write(fd, result.string(), result.size());
+void Sensor::dump(int fd __unused) {
 }
 
 } // namespace android

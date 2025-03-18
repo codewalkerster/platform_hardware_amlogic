@@ -70,6 +70,14 @@ void CameraConfig::deleteInstance(std::pair<int, int> range) {
         }
     }
 }
+
+void CameraConfig::deleteInstance(int groupId) {
+    if (mInstance[groupId]) {
+        delete mInstance[groupId];
+        mInstance[groupId] = nullptr;
+    }
+}
+
 uint32_t CameraConfig::getOutputWidth() {
 
     return mGDCParam.o_width;

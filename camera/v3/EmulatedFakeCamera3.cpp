@@ -1197,6 +1197,7 @@ const camera_metadata_t* EmulatedFakeCamera3::constructDefaultRequestSettings(
         30, fps
     };
     settings.update(ANDROID_CONTROL_AE_TARGET_FPS_RANGE, aeTargetFpsRange, 2);
+    mMaxFps = aeTargetFpsRange[1];
     static const uint8_t aeAntibandingMode =
             ANDROID_CONTROL_AE_ANTIBANDING_MODE_AUTO;
     settings.update(ANDROID_CONTROL_AE_ANTIBANDING_MODE, &aeAntibandingMode, 1);
@@ -1455,6 +1456,18 @@ status_t EmulatedFakeCamera3::processCaptureRequest(
          }
       }
 
+    if (mSensorType == SENSOR_V4L2MEDIA) {
+        int debug_fps = property_get_int32("vendor.camhal.mipi.debug.fps", 30);
+        if (debug_fps > 0 && debug_fps <= 30) {
+            if (mMaxFps != debug_fps) {
+                CAMHAL_LOGE("%s: debug set fps %d", __FUNCTION__, debug_fps);
+                //set fps mMaxFps
+                mMaxFps = debug_fps;
+                mFrameDuration =  1000000000 / mMaxFps;
+                mSensor->setMaxfps(mMaxFps);
+            }
+        }
+    }
       res = process3A(settings);
       if (res != OK) {
               CAMHAL_LOGVV("%s: process3A failed!", __FUNCTION__);
@@ -1764,30 +1777,7 @@ status_t EmulatedFakeCamera3::processCaptureRequest(
 
 /** Debug methods */
 
-void EmulatedFakeCamera3::dump(int fd) {
-
-    String8 result;
-    uint32_t count = sizeof(mAvailableJpegSize)/sizeof(mAvailableJpegSize[0]);
-    result = String8::format("%s, valid resolution\n", __FILE__);
-
-    for (uint32_t f = 0; f < count; f+=2) {
-        if (mAvailableJpegSize[f] == 0)
-            break;
-        result.appendFormat("width: %d , height =%d\n",
-            mAvailableJpegSize[f], mAvailableJpegSize[f+1]);
-    }
-    result.appendFormat("\nmZoomMin: %d , mZoomMax =%d, mZoomStep=%d\n",
-                            mZoomMin, mZoomMax, mZoomStep);
-
-    if (mZoomStep <= 0) {
-        result.appendFormat("!!!!!!!!!camera apk may have no picture out\n");
-    }
-
-    write(fd, result.string(), result.size());
-
-    if (mSensor.get() != NULL) {
-        mSensor->dump(fd);
-    }
+void EmulatedFakeCamera3::dump(int fd __unused) {
 
 }
 //flush all request

@@ -1379,6 +1379,11 @@ int V4l2MediaSensor::captureNewImage() {
     return 0;
 }
 
+status_t V4l2MediaSensor::setMaxfps(int fps) {
+    int ret = 0;
+    mIspMgr->setMaxfps(fps);
+    return ret ;
+}
 
 int V4l2MediaSensor::getZoom(int *zoomMin, int *zoomMax, int *zoomStep) {
     int ret = 0;

@@ -213,6 +213,27 @@ void CameraUtil::YUYVToNV21(uint8_t *src, uint8_t *dst, int width, int height)
         }
 }
 
+void CameraUtil::YUYVToNV12(uint8_t *src, uint8_t *dst, int width, int height)
+{
+    for (int i = 0; i < width * height * 2; i += 2) {
+        *dst++ = *(src + i);
+    }
+
+    for (int y = 0; y < height - 1; y +=2) {
+        for (int j = 0; j < width * 2; j += 4) {
+            *dst++ = (*(src + 1 + j) + *(src + 1 + j + width * 2) + 1) >> 1;    //u
+            *dst++ = (*(src + 3 + j) + *(src + 3 + j + width * 2) + 1) >> 1;    //v
+        }
+        src += width * 2 * 2;
+    }
+
+    if (height & 1)
+        for (int j = 0; j < width * 2; j += 4) {
+            *dst++ = *(src + 1 + j);    //u
+            *dst++ = *(src + 3 + j);    //v
+        }
+}
+
 void CameraUtil::UYVYToNV21(uint8_t *src, uint8_t *dst, int width, int height)
 {
     for (int i = 0; i < width * height * 2; i += 2) {

@@ -107,17 +107,6 @@ OMXDecoder::OMXDecoder(int cameraId, bool useDMABuffer, bool keepOriginalSize) {
     VICPEnable = false;
 
     mCameraId = cameraId;
-#if defined(PREVIEW_DEWARP_ENABLE) || defined(PICTURE_DEWARP_ENABLE)
-    if (1 == mCameraId) {
-        mCapturePort = DEWARP_CAM2PORT_USB_CAPTURE_1;
-        mPreviewPort = DEWARP_CAM2PORT_USB_PREVIEW_1;
-        mRecordPort = DEWARP_CAM2PORT_USB_RECORD_1;
-    } else {
-        mCapturePort = DEWARP_CAM2PORT_USB_CAPTURE;
-        mPreviewPort = DEWARP_CAM2PORT_USB_PREVIEW;
-        mRecordPort = DEWARP_CAM2PORT_USB_RECORD;
-    }
-#endif
 }
 
 OMXDecoder::~OMXDecoder() {
@@ -136,8 +125,9 @@ OMXDecoder::~OMXDecoder() {
 #endif
 
 #if defined(PREVIEW_DEWARP_ENABLE) || defined(PICTURE_DEWARP_ENABLE)
-        CAMHAL_LOGE("delete instance");
-        auto dewarpPortRange = std::make_pair(mPreviewPort, mCapturePort);
+        CAMHAL_LOGVV("delete instance");
+        auto dewarpPortRange = std::make_pair(DeWarp::get_dewarp_port(mCameraId, channel_preview),
+            DeWarp::get_dewarp_port(mCameraId, channel_record));
         DeWarp::putInstance(dewarpPortRange);
         CameraConfig::deleteInstance(dewarpPortRange);
 #endif
@@ -1182,21 +1172,7 @@ int OMXDecoder::DequeueBuffer(Vector<StreamBuffer>& b, bool isJpegRequest) {
                                     inputInfo.width = mInWidth;
                                     inputInfo.height = mInHeight;
                                 }
-                                dewarpcam2port port;
-                                switch (index) {
-                                    case 0:
-                                        port = mPreviewPort;
-                                        break;
-                                    case 1:
-                                        port = mCapturePort;
-                                        break;
-                                    case 2:
-                                        port = mRecordPort;
-                                        break;
-                                    default:
-                                        port = mPreviewPort;
-                                        break;
-                                }
+                                dewarpcam2port port = DeWarp::get_dewarp_port(mCameraId, i);
                                 bool needDestroy = isNeedDestroyDewarp(mPreDewarpInfo[port], dewarpInfo);
                                 if (needDestroy) {
                                     DeWarp::putInstance(port);

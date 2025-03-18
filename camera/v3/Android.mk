@@ -41,8 +41,6 @@ CAMERA_SW_MAX_PREVIEW_HEIGHT := 720
 
 ifeq ($(CAMERA_DEWARP_ENABLE), true)
 DEWARP_ENABLE := true
-else ifeq ($(TARGET_PRODUCT), mercury_arm64)
-DEWARP_ENABLE := true
 endif
 
 ifeq ($(CAMERA_VICP_ENABLE), true)

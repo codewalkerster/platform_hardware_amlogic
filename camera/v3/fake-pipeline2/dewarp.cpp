@@ -17,6 +17,7 @@ namespace android {
     DeWarp* DeWarp::mInstance[ISP_PORT_NUM][ROTATION_MAX] = {{nullptr}};
     Mutex DeWarp::mMutex;
     int DeWarp::dptz_CropX, DeWarp::dptz_CropY, DeWarp::dptz_CropWidth, DeWarp::dptz_CropHeight;
+    std::vector<dewarpcam2port> DeWarp::dewarpPort;
 
     DeWarp::DeWarp(int groupId,Rotation rotation):
         mRotation(rotation),
@@ -43,6 +44,31 @@ namespace android {
             mION->put_instance();
         }
     }
+
+    void DeWarp::add_dewarp_port() {
+        int i = 0;
+        dewarpPort.clear();
+        for (i = DEWARP_CAM2PORT_PREVIEW; i < DEWARP_CAM2PORT_USB_BASE; ++i) {
+            dewarpPort.push_back((dewarpcam2port)i);
+        }
+        for (int i = 0; i < USB_CAMERA_NUM; ++i) {
+            for (int j = channel_preview; j < channel_all; ++j) {
+                dewarpcam2port port = (dewarpcam2port)(DEWARP_CAM2PORT_USB_BASE +
+                    i * channel_all + j);
+                dewarpPort.push_back(port);
+            }
+        }
+        CAMHAL_LOGVV("dewarp port vector size %zu, max port num %d", dewarpPort.size(),
+            ISP_PORT_NUM);
+    }
+
+    dewarpcam2port DeWarp::get_dewarp_port(int cameraId, int ch) {
+        static std::once_flag flag;
+        std::call_once(flag, add_dewarp_port);
+        int portIndex = DEWARP_CAM2PORT_USB_BASE + (cameraId * channel_all) + ch;
+        return dewarpPort[portIndex];
+    }
+
     void DeWarp::set_input_buffer(int in_fd) {
         ATRACE_CALL();
         struct gdc_settings_ex *gdc_gs = &mGDCContext->gs_ex;
@@ -270,11 +296,6 @@ namespace android {
             return ret;
         }
 
-        ret = gdc_create_ctx(mGDCContext);
-        if (ret < 0) {
-            CAMHAL_LOGE("failed to gdc_create_ctx");
-            return ret;
-        }
         gdc_gs = &mGDCContext->gs_ex;
 
         gdc_gs->gdc_config.input_width = i_width;
@@ -285,11 +306,16 @@ namespace android {
         gdc_gs->gdc_config.output_height = o_height;
         gdc_gs->gdc_config.output_y_stride = o_y_stride;
         gdc_gs->gdc_config.output_c_stride = o_c_stride;
-        gdc_gs->gdc_config.format = YUV420_SEMIPLANAR;
+        gdc_gs->gdc_config.format = gdc_format | (config->getuvSwapEnable() ? UVSWAP_ENABLE : 0);
         gdc_gs->magic = sizeof(*gdc_gs);
         CAMHAL_LOGE("%s-%d         i_width:%d i_height:%d,i_y_stride:%d i_c_stride:%d o_width:%d o_height:%d o_y_stride:%d o_c_stride:%d \n",__func__,__LINE__,\
                                i_width,  i_height,   i_y_stride,   i_c_stride,   o_width,   o_height,   o_y_stride,   o_c_stride);
 
+        ret = gdc_create_ctx(mGDCContext);
+        if (ret < 0) {
+            CAMHAL_LOGE("failed to gdc_create_ctx");
+            return ret;
+        }
         //-----load gdc config
         if (!load_config_file()) {
             CAMHAL_LOGE("failed to load gdc config");
@@ -320,6 +346,7 @@ namespace android {
     void DeWarp::putInstance(std::pair<int, int> range) {
         int i = 0 ,j = 0;
         for (j = range.first; j <= range.second; j++) {
+            CAMHAL_LOGVV("delete %d dewarp", j);
             for (i = 0; i < ROTATION_MAX;i++) {
                 if (mInstance[j][i] != nullptr) {
                     delete mInstance[j][i];

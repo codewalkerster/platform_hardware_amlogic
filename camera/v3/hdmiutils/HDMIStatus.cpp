@@ -38,6 +38,13 @@ struct csiCamConfig ov5640Cfg = {
     .subDevName       = nullptr,
 };
 
+struct csiCamConfig max96712Cfg = {
+    .sensorWidth      = 1280,
+    .sensorHeight     = 800,
+    .sensorName       = "max96712",
+    .subDevName       = nullptr,
+};
+
 char subdevName[][64] = {
     "/dev/v4l-subdev0",
     "/dev/v4l-subdev1",
@@ -47,6 +54,7 @@ char subdevName[][64] = {
 
 struct csiCamConfig *supportedCfgs[] = {
     &ov5640Cfg,
+    &max96712Cfg,
 };
 
 HDMIStatus::HDMIStatus()     {

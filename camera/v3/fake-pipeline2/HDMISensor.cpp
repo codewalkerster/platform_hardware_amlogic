@@ -1,6 +1,5 @@
 
 #define LOG_TAG "HDMISensor"
-#define HDMI_PORT_INDEX 1
 
 #define ATRACE_TAG (ATRACE_TAG_CAMERA | ATRACE_TAG_HAL | ATRACE_TAG_ALWAYS)
 #include <utils/Log.h>
@@ -33,6 +32,7 @@ namespace android {
 const usb_frmsize_discrete_t kHdmiAvailablePictureSize[] = {
         {3840, 2160},
         {1920, 1080},
+        {1280, 800},
         {1280, 720},
         {640, 480},
         {352, 288},
@@ -276,8 +276,6 @@ status_t HDMISensor::startUp(int idx, bool customizationSensor) {
     if (res < 0) {
         CAMHAL_LOGE("Unable to open sensor %d, errno=%d\n", mMPlaneCameraIO->openIdx, res);
     }
-
-    hdmi_port_index = HDMI_PORT_INDEX;
     res = mMPlaneCameraIO->setInputPort(&hdmi_port_index);
     if (res < 0) {
         CAMHAL_LOGE("Unable set input HDMI3_RX3");

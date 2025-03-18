@@ -116,6 +116,19 @@ typedef enum channel {
     channel_all     = 3,
 } channel_t;
 
+enum dewarpcam2port {
+    DEWARP_CAM2PORT_PREVIEW = 0,
+    DEWARP_CAM2PORT_CAPTURE,
+    DEWARP_CAM2PORT_RECORD,
+    DEWARP_CAM2PORT_DPTZ_PREVIEW,
+    DEWARP_CAM2PORT_TRANSITION,
+    DEWARP_CAM2PORT_VDIN_PREVIEW,
+    DEWARP_CAM2PORT_VDIN_RECORD,
+    DEWARP_CAM2PORT_VDIN_CAPTURE,
+    DEWARP_CAM2PORT_USB_BASE,
+};
+constexpr int USB_BASE_PORT = DEWARP_CAM2PORT_USB_BASE;
+
 struct dewarpInfo {
     int o_width;
     int o_height;

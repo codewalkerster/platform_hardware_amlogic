@@ -267,6 +267,7 @@ private:
     int cameraid;
     bool dptz_enable;
     int dataspace;
+    int mMaxFps;
     /** Processing thread for sending out results */
 
     class ReadoutThread : public Thread, private JpegCompressor::JpegListener {
