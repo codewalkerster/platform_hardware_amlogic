@@ -42,6 +42,7 @@
 #include <unistd.h>
 #include "systemcontrol.h"
 #include "ubootenv/Ubootenv.h"
+#include <sys/statvfs.h>
 
 namespace android {
 namespace bootable {
@@ -62,12 +63,16 @@ constexpr unsigned int kDefaultBootAttempts = 7;
 
 #define SYS_BOOT_COMPLETE       "/sys/class/tee_info/sys_boot_complete"
 
+#define MIN_FREE_BYTES          200 * 1024 *1024
+
 static_assert(kDefaultBootAttempts < 8, "tries_remaining field only has 3 bits");
 
 constexpr unsigned int kMaxNumSlots =
     sizeof(bootloader_control::slot_info) / sizeof(bootloader_control::slot_info[0]);
 constexpr const char* kSlotSuffixes[kMaxNumSlots] = { "_a", "_b", "_c", "_d" };
 constexpr off_t kBootloaderControlOffset = offsetof(bootloader_message_ab, slot_suffix);
+constexpr uint64_t FS_STAT_ERROR = UINT64_MAX;
+
 
 static char env_buffer[64];
 
@@ -542,6 +547,20 @@ int SlotSuffixToIndex(const char* suffix) {
   return -1;
 }
 
+uint64_t GetFreeBytes(const std::string& path) {
+    struct statvfs vfs;
+    if (statvfs(path.c_str(), &vfs) != 0) {
+        LOG(ERROR) << "Failed to statvfs for path: " << path;
+        return FS_STAT_ERROR;
+    }
+
+    if (vfs.f_bsize == 0) {
+        LOG(ERROR) << "Invalid block size (0) for path " << path;
+        return FS_STAT_ERROR;
+    }
+    return static_cast<uint64_t>(vfs.f_bavail) * vfs.f_bsize;
+}
+
 // Initialize the boot_control_private struct with the information from
 // the bootloader_message buffer stored in |boot_ctrl|. Returns whether the
 // initialization succeeded.
@@ -632,6 +651,26 @@ bool BootControl::MarkBootSuccessful() {
       flag = 1;
       set_sys_boot_complete();
       LOG(INFO) << "call set_sys_boot_complete in MarkBootSuccessful";
+    }
+  }
+
+  if (bootctrl.slot_info[current_slot_].successful_boot != 1) {
+    uint64_t free_bytes = GetFreeBytes("/data");
+
+    if (free_bytes == FS_STAT_ERROR) {
+        LOG(ERROR) << "Invalid free_bytes";
+        return false;
+    }
+    if (free_bytes < MIN_FREE_BYTES) {
+        LOG(ERROR) << "free_bytes is : " << free_bytes << ", less than 200M, will panic rollback";
+        int fd = open("/proc/sysrq-trigger", O_WRONLY);
+        if (fd >= 0) {
+            write(fd, "c", 1);
+            close(fd);
+        } else {
+            LOG(ERROR) << "Failed to trigger panic via sysrq";
+        }
+        return false;
     }
   }
   bootctrl.slot_info[current_slot_].successful_boot = 1;
