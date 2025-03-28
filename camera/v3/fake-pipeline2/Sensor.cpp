@@ -1484,12 +1484,8 @@ int Sensor::captureNewImage() {
                     pixelfmt = getOutputFormat();
                     if (pixelfmt == V4L2_PIX_FMT_YVU420) {
                         pixelfmt = HAL_PIXEL_FORMAT_YV12;
-                    } else if (pixelfmt == V4L2_PIX_FMT_NV21) {
-                        pixelfmt = HAL_PIXEL_FORMAT_YCrCb_420_SP;
-                    } else if (pixelfmt == V4L2_PIX_FMT_YUYV) {
-                        pixelfmt = HAL_PIXEL_FORMAT_YCrCb_420_SP;
                     } else {
-                        pixelfmt = HAL_PIXEL_FORMAT_YCrCb_420_SP;
+                        pixelfmt = V4L2_PIX_FMT_NV21;
                     }
                 }
 
@@ -1505,6 +1501,7 @@ int Sensor::captureNewImage() {
                 bAux.img = new uint8_t[b.width * b.height * 3];
                 mNextCapturedBuffers->push_back(bAux);
                 break;
+            case V4L2_PIX_FMT_NV21:
             case HAL_PIXEL_FORMAT_YCrCb_420_SP:
                 captureNV21(b, gain);
                 break;
