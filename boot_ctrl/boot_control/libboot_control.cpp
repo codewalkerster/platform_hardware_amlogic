@@ -626,6 +626,20 @@ bool BootControl::Init() {
     UpdateAndSaveBootloaderControl(device.c_str(), &boot_ctrl);
   }
 
+
+  std::string api_level = android::base::GetProperty("ro.product.first_api_level", "");
+  LOG(INFO) << "ro.product.first_api_level: " << api_level;
+
+  if (api_level == "29" && (boot_ctrl.slot_info[current_slot_].successful_boot == 0)) {
+    LOG(INFO) << "OTA from Q to U";
+
+    if (boot_ctrl.retest_times != 1) {
+      LOG(INFO) << "set retest_times 2";
+      boot_ctrl.retest_times = 2;
+      UpdateAndSaveBootloaderControl(device.c_str(), &boot_ctrl);
+    }
+  }
+
   num_slots_ = boot_ctrl.nb_slot;
   return true;
 }

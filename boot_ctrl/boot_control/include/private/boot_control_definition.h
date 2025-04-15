@@ -137,7 +137,8 @@ struct bootloader_control {
     uint8_t merge_flag;
     uint8_t firstboot;
     uint8_t boot_tries_remaining;
-    uint8_t reserved1[5];
+    uint8_t retest_times;
+    uint8_t reserved1[4];
     // CRC32 of all 28 bytes preceding this field (little endian
     // format).
     uint32_t crc32_le;
