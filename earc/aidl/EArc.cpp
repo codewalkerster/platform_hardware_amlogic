@@ -48,7 +48,13 @@ ScopedAStatus EArc::setEArcEnabled(bool in_enabled) {
         return ScopedAStatus::ok();
     }
     mEArcEnabled = in_enabled;
-    int state = aml_mixer_ctrl_set_int(&mAlsaMixer, AML_MIXER_ID_EARC_TX_EARC_MODE, mEArcEnabled);
+    ALOGI("%s mEArcEnabled:%d", __FUNCTION__, mEArcEnabled);
+    int state = -1;
+    if (mEArcTx) {
+        state = aml_mixer_ctrl_set_int(&mAlsaMixer, AML_MIXER_ID_EARC_TX_EARC_MODE, mEArcEnabled);
+    } else {
+        state = aml_mixer_ctrl_set_int(&mAlsaMixer, AML_MIXER_ID_ARC_EARC_RX_ENABLE, mEArcEnabled);
+    }
     if (state != 0) {
         ALOGW("%s failed with state:%d", __FUNCTION__, state);
         // As the caller may does not catch ServiceSpecificException, it may cause a crash of
