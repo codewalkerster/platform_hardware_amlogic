@@ -102,8 +102,10 @@ struct slot_metadata {
     // 1 if this slot is corrupted from a dm-verity corruption, 0
     // otherwise.
     uint8_t verity_corrupted : 1;
+    // 0 init after ota; 1 slot boot success; 2 update boot1 ok
+    uint8_t uboot_status : 2;
     // Reserved for further use.
-    uint8_t reserved : 7;
+    uint8_t reserved : 5;
 } __attribute__((packed));
 
 /* Bootloader Control AB

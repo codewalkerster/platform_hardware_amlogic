@@ -519,6 +519,7 @@ void InitDefaultBootloaderControl(BootControl* control, bootloader_control* boot
       entry.priority = 7;
       entry.tries_remaining = kDefaultBootAttempts;
       entry.successful_boot = 0;
+      entry.uboot_status = 0;
     } else {
       entry.priority = 0;  // Unbootable
     }
@@ -529,6 +530,7 @@ void InitDefaultBootloaderControl(BootControl* control, bootloader_control* boot
     // stage it means that the misc partition was corrupted since boot.
     if (current_slot == slot) {
       entry.successful_boot = 1;
+      entry.uboot_status = 1;
     }
 
     boot_ctrl->slot_info[slot] = entry;
@@ -674,6 +676,7 @@ bool BootControl::MarkBootSuccessful() {
     }
   }
   bootctrl.slot_info[current_slot_].successful_boot = 1;
+  bootctrl.slot_info[current_slot_].uboot_status = 1;
   // tries_remaining == 0 means that the slot is not bootable anymore, make
   // sure we mark the current slot as bootable if it succeeds in the last
   // attempt.
@@ -805,6 +808,7 @@ bool BootControl::SetSlotAsUnbootable(unsigned int slot) {
   // The only way to mark a slot as unbootable, regardless of the priority is to
   // set the tries_remaining to 0.
   bootctrl.slot_info[slot].successful_boot = 0;
+  bootctrl.slot_info[slot].uboot_status = 0;
   bootctrl.slot_info[slot].tries_remaining = 0;
   return UpdateAndSaveBootloaderControl(misc_device_, &bootctrl);
 }
