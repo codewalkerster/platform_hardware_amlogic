@@ -463,6 +463,9 @@ void Dumpstate::dumpstateBoardOfSystem(int fd, int64_t maxtime) {
     DumpFileToFd(fd, "resource_mgr config", "/sys/class/resource_mgr/config");
     DumpFileToFd(fd, "resource_mgr res", "/sys/class/resource_mgr/res");
     DumpFileToFd(fd, "resource_mgr usage", "/sys/class/resource_mgr/usage");
+
+    //wakeup source
+    DumpFileToFd(fd, "ao cpu wakeup source", "/sys/class/meson_pm/suspend_reason");
     return;
 }
 

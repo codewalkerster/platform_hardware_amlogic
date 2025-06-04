@@ -58,6 +58,10 @@ on property:sys.boot_completed=1
     chown root system /sys/class/amaudio/dts_enable
     chmod 0444 /sys/class/amaudio/dts_enable
 
+    #wakeup source
+    chown root system /sys/class/meson_pm/suspend_reason
+    chmod 0444 /sys/class/meson_pm/suspend_reason
+
 service vendor.dumpstate-default /vendor/bin/hw/android.hardware.dumpstate-service.droidlogic
     class hal
     user system
