@@ -29,6 +29,7 @@ cc_binary {
     vendor: true,
     shared_libs: [
         "libbase",
+        "libz",  // for zlib gzip
         "libbinder_ndk",
         "libcutils",
         "libdumpstateutil",

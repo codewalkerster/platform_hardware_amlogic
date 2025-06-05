@@ -15,10 +15,16 @@
  */
 
 #include <android-base/properties.h>
+#include <android-base/file.h>
+#include <android-base/stringprintf.h>
+#include <android-base/strings.h>
+#include <zlib.h>  // for gzip
+#include <unistd.h>
 #include <log/log.h>
 #include <sys/prctl.h>
 #include <sys/wait.h>
 #include <inttypes.h>
+
 
 #include "DumpstateUtil.h"
 
@@ -28,6 +34,86 @@ using namespace std;
 using android::os::dumpstate::CommandOptions;
 using android::os::dumpstate::DumpFileToFd;
 using android::os::dumpstate::RunCommandToFd;
+using android::base::ReadFileToString;
+using android::base::StringPrintf;
+
+// Base64 Encoding Function
+std::string Base64Encode(const uint8_t* data, size_t len) {
+    static const char* base64_chars =
+        "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/";
+    std::string result;
+    result.reserve(((len + 2) / 3) * 4);
+    for (size_t i = 0; i < len; i += 3) {
+        int val = 0;
+        int remaining = len - i;
+        val |= data[i] << 16;
+        if (remaining > 1) val |= data[i + 1] << 8;
+        if (remaining > 2) val |= data[i + 2];
+        result.push_back(base64_chars[(val >> 18) & 0x3F]);
+        result.push_back(base64_chars[(val >> 12) & 0x3F]);
+        result.push_back(remaining > 1 ? base64_chars[(val >> 6) & 0x3F] : '=');
+        result.push_back(remaining > 2 ? base64_chars[val & 0x3F] : '=');
+    }
+    return result;
+}
+
+// Compress and output to fd in base64
+void DumpCompressedBase64FileToFd(int fd, const std::string& title, const std::string& path) {
+    std::string content;
+    if (!ReadFileToString(path, &content)) {
+        dprintf(fd, "%s: (could not read %s)\n\n", title.c_str(), path.c_str());
+        return;
+    }
+
+    std::string compressed;
+    z_stream zs{};
+    if (deflateInit2(&zs, Z_BEST_COMPRESSION, Z_DEFLATED, MAX_WBITS + 16, 8, Z_DEFAULT_STRATEGY) != Z_OK) {
+        dprintf(fd, "%s: deflateInit2() failed\n\n", title.c_str());
+        return;
+    }
+
+    zs.next_in = reinterpret_cast<Bytef*>(content.data());
+    zs.avail_in = content.size();
+
+    constexpr size_t CHUNK_SIZE = 32768;
+    char* outbuffer = static_cast<char*>(malloc(CHUNK_SIZE));
+    if (!outbuffer) {
+        dprintf(fd, "%s: malloc() failed\n\n", title.c_str());
+        deflateEnd(&zs);
+        return;
+    }
+
+    int ret;
+    do {
+        zs.next_out = reinterpret_cast<Bytef*>(outbuffer);
+        zs.avail_out = CHUNK_SIZE;
+        ret = deflate(&zs, Z_FINISH);
+        if (ret != Z_OK && ret != Z_STREAM_END) {
+            dprintf(fd, "%s: deflate() failed with code %d\n\n", title.c_str(), ret);
+            free(outbuffer);
+            deflateEnd(&zs);
+            return;
+        }
+        compressed.append(outbuffer, CHUNK_SIZE - zs.avail_out);
+    } while (ret != Z_STREAM_END);
+
+    deflateEnd(&zs);
+    free(outbuffer);
+
+    std::string encoded = Base64Encode(
+        reinterpret_cast<const uint8_t*>(compressed.data()), compressed.size());
+
+    dprintf(fd, "%s (base64-encoded):\n", title.c_str());
+
+    // Output 76 characters per line
+    const size_t line_width = 76;
+    for (size_t i = 0; i < encoded.size(); i += line_width) {
+        dprintf(fd, "%.*s\n", static_cast<int>(std::min(line_width, encoded.size() - i)), &encoded[i]);
+    }
+
+    dprintf(fd, "\n");
+}
+
 
 namespace aidl {
 namespace android {
@@ -294,8 +380,10 @@ bool Dumpstate::getVerboseLoggingEnabledImpl() {
 void Dumpstate::dumpstateBoardOfSystem(int fd, int64_t maxtime) {
     (void)maxtime;
 
-    DumpFileToFd(fd, "wifi_fw_trace log", "/data/vendor/fw_trace.log");
-    DumpFileToFd(fd, "bluetooth_fw_trace log", "/data/vendor/fw_log.txt");
+    //DumpFileToFd(fd, "wifi fw log", "/data/vendor/fw_trace.log");
+    //DumpFileToFd(fd, "bt fw log", "/data/vendor/fw_log.txt");
+    DumpCompressedBase64FileToFd(fd, "wifi_fw_trace log", "/data/vendor/fw_trace.log");
+    DumpCompressedBase64FileToFd(fd, "bluetooth_fw_trace log", "/data/vendor/fw_log.txt");
 
     DumpFileToFd(fd, "LITTLE cluster time-in-state", "/sys/devices/system/cpu/cpu0/cpufreq/stats/time_in_state");
     //clock master
