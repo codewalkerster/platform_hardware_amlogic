@@ -80,6 +80,7 @@
 #define PROPERTY_POWER_STATE            "persist.vendor.sys.cec.power_state"
 #define PROPERTY_CEC_ENABLED            "persist.vendor.sys.cec.cec_enabled"
 #define PROPERTY_BOX_CONNECTION_STATE   "vendor.sys.hdmi.connected"
+#define PROPERTY_FILTER_SAM_FOR_STB     "vendor.sys.hdmi.filter_sam"
 
 //#define PROPERTY_BOOT_REASON            "sys.boot.reason"
 #define PROPERTY_BOOT_REASON            "sys.boot.reason"
@@ -115,6 +116,7 @@ enum cec_message_para_value{
     CEC_KEYCODE_LEFT = 0x03,
     CEC_KEYCODE_RIGHT = 0x04,
     CEC_KEYCODE_POWER = 0x40,
+    CEC_KEYCODE_MUTE = 0x43,
     CEC_KEYCODE_PLAY = 0x44,
     CEC_KEYCODE_POWER_TOGGLE_FUNCTION = 0x6B,
     CEC_KEYCODE_POWER_ON_FUNCTION = 0x6D,
@@ -273,6 +275,7 @@ private:
     bool mIsReboot;
     // Whether the hotplug event is reported when it's awake.
     bool mHotplugOutAwake;
+    bool mIsSamNeededForStb = true;
 };
 
 

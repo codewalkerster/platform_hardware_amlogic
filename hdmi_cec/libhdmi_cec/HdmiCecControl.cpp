@@ -439,6 +439,9 @@ void HdmiCecControl::setOption(int flag, int value)
                 updateActiveStateForFramework();
                 mCecDevice.hdmi_cfg_init = true;
             }
+            if (mCecDevice.is_cec_controlled && mCecDevice.is_playback) {
+                mIsSamNeededForStb = true;
+            }
             /* removed for the tv compat logic has been moved to driver.
             if (mCecDevice.is_cec_controlled) {
                 initCecWakeupInfo();
@@ -1192,6 +1195,22 @@ int HdmiCecControl::preHandleOfSend(const cec_message_t* message)
                 msg.mType = HdmiCecControl::MsgHandler::MSG_SET_OSD_NAME;
                 // Remove the pending protection osd message.
                 mMsgHandler->removeMsg(msg);
+            }
+            break;
+        case CEC_MESSAGE_USER_CONTROL_PRESSED:
+            if (mCecDevice.is_playback && (message->destination == CEC_ADDR_AUDIO_SYSTEM) && (message->length >= 2)) {
+                int cecKeyCode = message->body[1] & 0xff;
+                if (cecKeyCode == CEC_KEYCODE_MUTE) {
+                    mIsSamNeededForStb = false;
+                }
+            }
+            break;
+        case CEC_MESSAGE_SYSTEM_AUDIO_MODE_REQUEST:
+            if (mCecDevice.is_playback && (message->destination == CEC_ADDR_AUDIO_SYSTEM)) {
+                if (getPropertyBoolean(PROPERTY_FILTER_SAM_FOR_STB, false) && !mIsSamNeededForStb) {
+                    LOGD("filter System Audio Mode Request message if a mute operation was previously sent to the AVR");
+                    ret = -1;
+                }
             }
             break;
         default:
