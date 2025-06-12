@@ -69,6 +69,7 @@ void DumpCompressedBase64FileToFd(int fd, const std::string& title, const std::s
     z_stream zs{};
     if (deflateInit2(&zs, Z_BEST_COMPRESSION, Z_DEFLATED, MAX_WBITS + 16, 8, Z_DEFAULT_STRATEGY) != Z_OK) {
         dprintf(fd, "%s: deflateInit2() failed\n\n", title.c_str());
+        deflateEnd(&zs);
         return;
     }
 
