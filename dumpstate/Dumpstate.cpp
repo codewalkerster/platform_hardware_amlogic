@@ -24,6 +24,11 @@
 #include <sys/prctl.h>
 #include <sys/wait.h>
 #include <inttypes.h>
+#include <dirent.h>
+#include <regex>
+#include <fstream>
+#include <memory>
+
 
 
 #include "DumpstateUtil.h"
@@ -36,6 +41,55 @@ using android::os::dumpstate::DumpFileToFd;
 using android::os::dumpstate::RunCommandToFd;
 using android::base::ReadFileToString;
 using android::base::StringPrintf;
+
+bool CompressFileToStringBuffer(const std::string& path, std::string* output) {
+    if (!output) return false;
+    output->clear();
+
+    std::ifstream infile(path, std::ios::in | std::ios::binary);
+    if (!infile.is_open()) {
+        return false;
+    }
+
+    z_stream zs{};
+    if (deflateInit2(&zs, Z_BEST_COMPRESSION, Z_DEFLATED,
+                     MAX_WBITS + 16, 8, Z_DEFAULT_STRATEGY) != Z_OK) {
+        return false;
+    }
+
+    constexpr size_t kReadChunkSize = 32768;
+    constexpr size_t kOutChunkSize = 32768;
+
+    std::unique_ptr<char[]> read_buf(new char[kReadChunkSize]);
+    std::unique_ptr<char[]> out_buf(new char[kOutChunkSize]);
+
+    int flush;
+    do {
+        infile.read(read_buf.get(), kReadChunkSize);
+        std::streamsize read_size = infile.gcount();
+        if (read_size == 0) break;
+
+        zs.next_in = reinterpret_cast<Bytef*>(read_buf.get());
+        zs.avail_in = read_size;
+        flush = infile.eof() ? Z_FINISH : Z_NO_FLUSH;
+
+        do {
+            zs.next_out = reinterpret_cast<Bytef*>(out_buf.get());
+            zs.avail_out = kOutChunkSize;
+
+            int ret = deflate(&zs, flush);
+            if (ret == Z_STREAM_ERROR) {
+                deflateEnd(&zs);
+                return false;
+            }
+
+            output->append(out_buf.get(), kOutChunkSize - zs.avail_out);
+        } while (zs.avail_out == 0);
+    } while (flush != Z_FINISH);
+
+    deflateEnd(&zs);
+    return true;
+}
 
 // Base64 Encoding Function
 std::string Base64Encode(const uint8_t* data, size_t len) {
@@ -57,62 +111,54 @@ std::string Base64Encode(const uint8_t* data, size_t len) {
     return result;
 }
 
-// Compress and output to fd in base64
-void DumpCompressedBase64FileToFd(int fd, const std::string& title, const std::string& path) {
-    std::string content;
-    if (!ReadFileToString(path, &content)) {
-        dprintf(fd, "%s: (could not read %s)\n\n", title.c_str(), path.c_str());
-        return;
-    }
-
-    std::string compressed;
-    z_stream zs{};
-    if (deflateInit2(&zs, Z_BEST_COMPRESSION, Z_DEFLATED, MAX_WBITS + 16, 8, Z_DEFAULT_STRATEGY) != Z_OK) {
-        dprintf(fd, "%s: deflateInit2() failed\n\n", title.c_str());
-        deflateEnd(&zs);
-        return;
-    }
-
-    zs.next_in = reinterpret_cast<Bytef*>(content.data());
-    zs.avail_in = content.size();
-
-    constexpr size_t CHUNK_SIZE = 32768;
-    char* outbuffer = static_cast<char*>(malloc(CHUNK_SIZE));
-    if (!outbuffer) {
-        dprintf(fd, "%s: malloc() failed\n\n", title.c_str());
-        deflateEnd(&zs);
-        return;
-    }
-
-    int ret;
-    do {
-        zs.next_out = reinterpret_cast<Bytef*>(outbuffer);
-        zs.avail_out = CHUNK_SIZE;
-        ret = deflate(&zs, Z_FINISH);
-        if (ret != Z_OK && ret != Z_STREAM_END) {
-            dprintf(fd, "%s: deflate() failed with code %d\n\n", title.c_str(), ret);
-            free(outbuffer);
-            deflateEnd(&zs);
-            return;
-        }
-        compressed.append(outbuffer, CHUNK_SIZE - zs.avail_out);
-    } while (ret != Z_STREAM_END);
-
-    deflateEnd(&zs);
-    free(outbuffer);
-
-    std::string encoded = Base64Encode(
-        reinterpret_cast<const uint8_t*>(compressed.data()), compressed.size());
+// Output the base64-encoded string to fd, with a maximum of 76 characters per line
+void OutputBase64EncodedToFd(int fd, const std::string& title, const std::string& data) {
+    std::string encoded = Base64Encode(reinterpret_cast<const uint8_t*>(data.data()), data.size());
 
     dprintf(fd, "%s (base64-encoded):\n", title.c_str());
 
-    // Output 76 characters per line
-    const size_t line_width = 76;
+    constexpr size_t line_width = 76;
     for (size_t i = 0; i < encoded.size(); i += line_width) {
         dprintf(fd, "%.*s\n", static_cast<int>(std::min(line_width, encoded.size() - i)), &encoded[i]);
     }
 
     dprintf(fd, "\n");
+}
+
+void DumpCompressedBase64FileToFd(int fd, const std::string& title, const std::string& path) {
+    std::string compressed;
+    if (!CompressFileToStringBuffer(path, &compressed)) {
+        dprintf(fd, "%s: (could not compress %s)\n\n", title.c_str(), path.c_str());
+        return;
+    }
+
+    OutputBase64EncodedToFd(fd, title, compressed);
+}
+
+void DumpFixedFwLogGzFilesBase64(int fd, const std::string& dir_path = "/data/vendor/") {
+    static const std::vector<std::string> fixed_names = {
+        "fw_log.txt_1.gz",
+        "fw_log.txt_2.gz",
+        "fw_log.txt_3.gz"
+    };
+
+    for (const auto& name : fixed_names) {
+        std::string full_path = dir_path + name;
+
+        // Try to open the file (check for existence in advance using access())
+        if (access(full_path.c_str(), R_OK) != 0) {
+            // The file does not exist or is not readable, skip.
+            continue;
+        }
+
+        std::string content;
+        if (!ReadFileToString(full_path, &content)) {
+            dprintf(fd, "%s: (could not read %s)\n\n", name.c_str(), full_path.c_str());
+            continue;
+        }
+
+        OutputBase64EncodedToFd(fd, name, content);
+    }
 }
 
 
@@ -385,6 +431,7 @@ void Dumpstate::dumpstateBoardOfSystem(int fd, int64_t maxtime) {
     //DumpFileToFd(fd, "bt fw log", "/data/vendor/fw_log.txt");
     DumpCompressedBase64FileToFd(fd, "wifi_fw_trace log", "/data/vendor/fw_trace.log");
     DumpCompressedBase64FileToFd(fd, "bluetooth_fw_trace log", "/data/vendor/fw_log.txt");
+    DumpFixedFwLogGzFilesBase64(fd);
 
     DumpFileToFd(fd, "LITTLE cluster time-in-state", "/sys/devices/system/cpu/cpu0/cpufreq/stats/time_in_state");
     //clock master
