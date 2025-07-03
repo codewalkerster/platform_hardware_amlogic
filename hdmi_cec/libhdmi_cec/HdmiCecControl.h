@@ -162,6 +162,7 @@ typedef struct hdmi_device {
     bool                        run;
     bool                        exited;
     int                         playback_logical_addr;
+    pthread_t                   thread_id;
 
     int                         active_logical_addr;
     int                         active_routing_path;

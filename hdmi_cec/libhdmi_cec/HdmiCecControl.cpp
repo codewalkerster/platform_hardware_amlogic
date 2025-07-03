@@ -214,9 +214,14 @@ HdmiCecControl::HdmiCecControl(int event)
 
     getBootConnectStatus();
 
-    mHdmiCecEventHandler = new HdmiCecEventHandler(this);
-    mMonitor = new HdmiCecBusMonitor(mHdmiCecEventHandler);
-    mMonitor->run("HdmiCecBusMonitor");
+    if ((mCecEvent & HDMI_EVENT_HOT_PLUG) != 0) {
+        mHdmiCecEventHandler = new HdmiCecEventHandler(this);
+        mMonitor = new HdmiCecBusMonitor(mHdmiCecEventHandler);
+        mMonitor->run("HdmiCecBusMonitor");
+    } else if ((mCecEvent & HDMI_EVENT_CEC_MESSAGE) != 0) {
+        pthread_create(&mCecDevice.thread_id, NULL, __threadLoop, this);
+        pthread_setname_np(mCecDevice.thread_id, "hdmi_cec_loop");
+    }
 
     mMsgHandler = sp<MsgHandler>::make(this);
     mMsgHandler->startMsgQueue();
@@ -720,47 +725,9 @@ void* HdmiCecControl::__threadLoop(void *user)
 
 void HdmiCecControl::threadLoop()
 {
-    unsigned char msgBuf[CEC_MESSAGE_BODY_MAX_LENGTH];
-    hdmi_cec_event_t event;
-    int r = -1;
-
-    while (mCecDevice.driver_fd < 0) {
-        usleep(1000 * 1000);
-        mCecDevice.driver_fd = open(CEC_FILE, O_RDWR);
-    }
-    LOGI("file open ok, fd = %d.", mCecDevice.driver_fd);
-
+    LOGD("start cec message thread loop");
     while (mCecDevice.run) {
-        if (!mCecDevice.is_cec_enabled) {
-            usleep(1000 * 1000);
-            continue;
-        }
-        checkConnectStatus();
-
-        memset(msgBuf, 0, sizeof(msgBuf));
-        //try to get a message from dev.
-        r = readMessage(msgBuf, CEC_MESSAGE_BODY_MAX_LENGTH);
-        if (r <= 1)//ignore received ping messages
-            continue;
-
-        printCecMsgBuf((const char*)msgBuf, r);
-
-        memset(event.cec.body, 0, sizeof(event.cec.body));
-        memcpy(event.cec.body, msgBuf + 1, r - 1);
-        event.eventType = 0;
-        event.cec.initiator = cec_logical_address_t((msgBuf[0] >> 4) & 0xf);
-        event.cec.destination = cec_logical_address_t((msgBuf[0] >> 0) & 0xf);
-        event.cec.length = r - 1;
-
-        if (mCecDevice.is_cec_controlled || transferableInSleep((char*)msgBuf)) {
-             event.eventType |= HDMI_EVENT_CEC_MESSAGE;
-        }
-
-        messageValidateAndHandle(&event);
-        handleOTPMsg(&event);
-        if (mEventListener != NULL && event.eventType != 0) {
-            mEventListener->onEventUpdate(&event);
-        }
+        readCecMessage();
     }
     //LOGE("thread end.");
     mCecDevice.exited = true;
