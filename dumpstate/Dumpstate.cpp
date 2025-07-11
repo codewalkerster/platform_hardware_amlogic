@@ -28,6 +28,7 @@
 #include <regex>
 #include <fstream>
 #include <memory>
+#include <chrono>
 
 
 
@@ -111,31 +112,205 @@ std::string Base64Encode(const uint8_t* data, size_t len) {
     return result;
 }
 
-// Output the base64-encoded string to fd, with a maximum of 76 characters per line
-void OutputBase64EncodedToFd(int fd, const std::string& title, const std::string& data) {
-    std::string encoded = Base64Encode(reinterpret_cast<const uint8_t*>(data.data()), data.size());
+// Chunked base64 encoding and write to fd
+void OutputBase64EncodedToFdChunked(int fd, const std::string& title, const uint8_t* data, size_t len) {
+    static const char* base64_chars = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/";
+    constexpr size_t line_width = 76;
+    constexpr size_t chunk_size = 3 * 1024; // Base64 groups every 3 bytes into one set
 
     dprintf(fd, "%s (base64-encoded):\n", title.c_str());
 
-    constexpr size_t line_width = 76;
-    for (size_t i = 0; i < encoded.size(); i += line_width) {
-        dprintf(fd, "%.*s\n", static_cast<int>(std::min(line_width, encoded.size() - i)), &encoded[i]);
-    }
+    size_t i = 0;
+    std::string line;
+    while (i < len) {
+        size_t remain = len - i;
+        size_t process = remain > chunk_size ? chunk_size : remain;
+        // Base64 encoding
+        for (size_t j = 0; j < process; j += 3) {
+            int val = 0;
+            int r = process - j;
+            val |= data[i + j] << 16;
+            if (r > 1) val |= data[i + j + 1] << 8;
+            if (r > 2) val |= data[i + j + 2];
+            line.push_back(base64_chars[(val >> 18) & 0x3F]);
+            line.push_back(base64_chars[(val >> 12) & 0x3F]);
+            line.push_back(r > 1 ? base64_chars[(val >> 6) & 0x3F] : '=');
+            line.push_back(r > 2 ? base64_chars[val & 0x3F] : '=');
 
+            // Output one line every line_width
+            if (line.size() >= line_width) {
+                dprintf(fd, "%.*s\n", (int)line_width, line.c_str());
+                line.erase(0, line_width);
+            }
+        }
+        i += process;
+    }
+    // Output the content that is less than one line remaining
+    if (!line.empty()) {
+        dprintf(fd, "%s\n", line.c_str());
+    }
     dprintf(fd, "\n");
 }
 
-void DumpCompressedBase64FileToFd(int fd, const std::string& title, const std::string& path) {
-    std::string compressed;
-    if (!CompressFileToStringBuffer(path, &compressed)) {
-        dprintf(fd, "%s: (could not compress %s)\n\n", title.c_str(), path.c_str());
+// Block compression, chunked base64, chunked writing to fd
+void DumpCompressedBase64FileToFd_Chunked(int fd, const std::string& title, const std::string& path) {
+    constexpr size_t kReadChunkSize = 32768;
+    constexpr size_t kOutChunkSize = 32768;
+    constexpr size_t kBase64LineWidth = 76;
+    constexpr int kDeflateLoopMax = 10000;
+
+    std::ifstream infile(path, std::ios::in | std::ios::binary);
+    if (!infile.is_open()) {
+        dprintf(fd, "%s: (could not open %s)\n\n", title.c_str(), path.c_str());
         return;
     }
 
-    OutputBase64EncodedToFd(fd, title, compressed);
+    z_stream zs{};
+    if (deflateInit2(&zs, Z_BEST_COMPRESSION, Z_DEFLATED, MAX_WBITS + 16, 8, Z_DEFAULT_STRATEGY) != Z_OK) {
+        dprintf(fd, "%s: (could not init zlib for %s)\n\n", title.c_str(), path.c_str());
+        return;
+    }
+
+    std::unique_ptr<char[]> read_buf(new char[kReadChunkSize]);
+    std::unique_ptr<uint8_t[]> out_buf(new uint8_t[kOutChunkSize]);
+
+    dprintf(fd, "%s (base64-encoded):\n", title.c_str());
+    std::string base64_line;
+
+    size_t total_read = 0, total_compressed = 0;
+    auto start = std::chrono::steady_clock::now();
+
+    int flush = Z_NO_FLUSH;
+    do {
+        infile.read(read_buf.get(), kReadChunkSize);
+        std::streamsize read_size = infile.gcount();
+        total_read += read_size;
+
+        flush = (read_size < static_cast<std::streamsize>(kReadChunkSize) && infile.eof()) ? Z_FINISH : Z_NO_FLUSH;
+
+        zs.next_in = reinterpret_cast<Bytef*>(read_buf.get());
+        zs.avail_in = read_size;
+
+        do {
+            zs.next_out = reinterpret_cast<Bytef*>(out_buf.get());
+            zs.avail_out = kOutChunkSize;
+
+            int loop_guard = 0;
+            int ret = deflate(&zs, flush);
+            if (ret == Z_STREAM_ERROR) {
+                deflateEnd(&zs);
+                dprintf(fd, "%s: (zlib error)\n\n", title.c_str());
+                return;
+            }
+
+            size_t have = kOutChunkSize - zs.avail_out;
+            total_compressed += have;
+
+            // Base64 encoding
+            size_t i = 0;
+            while (i < have) {
+                size_t remain = have - i;
+                size_t process = (remain >= 3) ? 3 : remain;
+                uint8_t in[3] = {0, 0, 0};
+                for (size_t j = 0; j < process; ++j) {
+                    in[j] = out_buf[i + j];
+                }
+
+                int val = (in[0] << 16) | (in[1] << 8) | in[2];
+                base64_line.push_back("ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/"[(val >> 18) & 0x3F]);
+                base64_line.push_back("ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/"[(val >> 12) & 0x3F]);
+                base64_line.push_back((process > 1) ? "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/"[(val >> 6) & 0x3F] : '=');
+                base64_line.push_back((process > 2) ? "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/"[val & 0x3F] : '=');
+
+                if (base64_line.size() >= kBase64LineWidth) {
+                    dprintf(fd, "%.*s\n", static_cast<int>(kBase64LineWidth), base64_line.c_str());
+                    base64_line.erase(0, kBase64LineWidth);
+                }
+
+                i += process;
+            }
+        } while (zs.avail_out == 0);
+    } while (flush != Z_FINISH);
+
+    // Print the remaining base64 line
+    if (!base64_line.empty()) {
+        dprintf(fd, "%s\n", base64_line.c_str());
+    }
+
+    dprintf(fd, "\n");
+    deflateEnd(&zs);
+
+    auto end = std::chrono::steady_clock::now();
+    auto ms = std::chrono::duration_cast<std::chrono::milliseconds>(end - start).count();
+    dprintf(fd, "%s: (compressed %zu bytes, read %zu bytes, time %lld ms)\n\n",
+            title.c_str(), total_compressed, total_read, static_cast<long long>(ms));
+    ALOGI("DumpstateDevice::%s compressed %zu → %zu bytes in %lld ms",
+          title.c_str(), total_read, total_compressed, static_cast<long long>(ms));
 }
 
-void DumpFixedFwLogGzFilesBase64(int fd, const std::string& dir_path = "/data/vendor/") {
+
+
+void DumpGzFileToFdChunked(int fd, const std::string& title, const std::string& path) {
+    constexpr size_t kReadChunkSize = 32768;  // 32KB chunk
+    constexpr size_t line_width = 76;
+
+    std::ifstream infile(path, std::ios::in | std::ios::binary);
+    if (!infile.is_open()) {
+        dprintf(fd, "%s: (could not open %s)\n\n", title.c_str(), path.c_str());
+        return;
+    }
+
+    std::unique_ptr<char[]> read_buf(new char[kReadChunkSize]);
+    std::string base64_line;
+    size_t total_read = 0;
+
+    auto start = std::chrono::steady_clock::now();
+    dprintf(fd, "%s (base64-encoded):\n", title.c_str());
+
+    while (!infile.eof()) {
+        infile.read(read_buf.get(), kReadChunkSize);
+        std::streamsize read_size = infile.gcount();
+        if (read_size == 0) break;
+        total_read += read_size;
+
+        // Chunked base64 encoding
+        for (size_t i = 0; i < read_size; i += 3) {
+            size_t remain = read_size - i;
+            size_t process = remain > 3 ? 3 : remain;
+
+            uint8_t in[3] = {0, 0, 0};
+            for (size_t j = 0; j < process; ++j) {
+                in[j] = static_cast<uint8_t>(read_buf[i + j]);
+            }
+
+            // base64 encoding
+            int val = (in[0] << 16) | (in[1] << 8) | in[2];
+            base64_line.push_back("ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/"[(val >> 18) & 0x3F]);
+            base64_line.push_back("ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/"[(val >> 12) & 0x3F]);
+            base64_line.push_back(process > 1 ? "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/"[(val >> 6) & 0x3F] : '=');
+            base64_line.push_back(process > 2 ? "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/"[val & 0x3F] : '=');
+
+            // Output one line every 76 characters
+            if (base64_line.size() >= line_width) {
+                dprintf(fd, "%.*s\n", (int)line_width, base64_line.c_str());
+                base64_line.erase(0, line_width);
+            }
+        }
+    }
+
+    // Output the content with less than one line remaining
+    if (!base64_line.empty()) {
+        dprintf(fd, "%s\n", base64_line.c_str());
+    }
+    dprintf(fd, "\n");
+
+    auto end = std::chrono::steady_clock::now();
+    auto ms = std::chrono::duration_cast<std::chrono::milliseconds>(end - start).count();
+    dprintf(fd, "%s: (read %zu bytes, time %lld ms)\n\n", title.c_str(), total_read, ms);
+    ALOGI("DumpstateDevice::DumpGzFileToFdChunked() elapsed %s total %lld ms", title.c_str(), ms);
+}
+
+void DumpFixedFwLogGzFilesBase64_Chunked(int fd, const std::string& dir_path = "/data/vendor/") {
     static const std::vector<std::string> fixed_names = {
         "fw_log.txt_1.gz",
         "fw_log.txt_2.gz",
@@ -145,22 +320,15 @@ void DumpFixedFwLogGzFilesBase64(int fd, const std::string& dir_path = "/data/ve
     for (const auto& name : fixed_names) {
         std::string full_path = dir_path + name;
 
-        // Try to open the file (check for existence in advance using access())
+        // Check if the file exists
         if (access(full_path.c_str(), R_OK) != 0) {
-            // The file does not exist or is not readable, skip.
             continue;
         }
 
-        std::string content;
-        if (!ReadFileToString(full_path, &content)) {
-            dprintf(fd, "%s: (could not read %s)\n\n", name.c_str(), full_path.c_str());
-            continue;
-        }
-
-        OutputBase64EncodedToFd(fd, name, content);
+        // Chunked read, chunked base64, chunked write to fd
+        DumpGzFileToFdChunked(fd, name, full_path);
     }
 }
-
 
 namespace aidl {
 namespace android {
@@ -427,11 +595,9 @@ bool Dumpstate::getVerboseLoggingEnabledImpl() {
 void Dumpstate::dumpstateBoardOfSystem(int fd, int64_t maxtime) {
     (void)maxtime;
 
-    //DumpFileToFd(fd, "wifi fw log", "/data/vendor/fw_trace.log");
-    //DumpFileToFd(fd, "bt fw log", "/data/vendor/fw_log.txt");
-    DumpCompressedBase64FileToFd(fd, "wifi_fw_trace log", "/data/vendor/fw_trace.log");
-    DumpCompressedBase64FileToFd(fd, "bluetooth_fw_trace log", "/data/vendor/fw_log.txt");
-    DumpFixedFwLogGzFilesBase64(fd);
+    DumpCompressedBase64FileToFd_Chunked(fd, "wifi_fw_trace log", "/data/vendor/fw_trace.log");
+    DumpCompressedBase64FileToFd_Chunked(fd, "bluetooth_fw_trace log", "/data/vendor/fw_log.txt");
+    DumpFixedFwLogGzFilesBase64_Chunked(fd);
 
     DumpFileToFd(fd, "LITTLE cluster time-in-state", "/sys/devices/system/cpu/cpu0/cpufreq/stats/time_in_state");
     //clock master
@@ -542,6 +708,7 @@ void Dumpstate::dumpstateBoardOfMedia(int fd, int64_t maxtime) {
         DumpFileToFd(fd, "Notify Media Service Event", "/sys/class/resource_mgr/res_report");
         elapsed = Nanotime() / NANOS_PER_SEC - start;
         rest = maxtime - elapsed;
+        rest = rest > 3 ? 3:rest;
         if (rest > 0)
             sleep(rest);
     }
