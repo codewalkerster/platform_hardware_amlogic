@@ -102,6 +102,15 @@ static uint32_t CRC32(const uint8_t* buf, size_t size) {
 void threadFunction(void) {
  std::string completed_prop = android::base::GetProperty("sys.boot_completed", "");
  int count = 3;
+ int quiescent_flag = 0;
+ std::string bootreason = android::base::GetProperty("sys.boot.reason", "");
+
+ LOG(INFO) << "sys.boot.reason: " << bootreason;
+
+ if (bootreason.find("quiescent") != std::string::npos) {
+   LOG(INFO) << "quiescent mode";
+   quiescent_flag = 1;
+ }
 
  LOG(INFO) << "sys.boot_completed in thread: " << completed_prop;
 
@@ -113,15 +122,21 @@ void threadFunction(void) {
    count--;
  }
 
- if (android_reboot(ANDROID_RB_RESTART2, 0, nullptr) == -1) {
-   LOG(ERROR) << "Failed to reboot.";
-   return;
+ if (quiescent_flag == 1) {
+   if (android_reboot(ANDROID_RB_RESTART2, 0, "quiescent") == -1) {
+     LOG(ERROR) << "Failed to reboot.";
+     return;
+   }
+ } else {
+   if (android_reboot(ANDROID_RB_RESTART2, 0, NULL) == -1) {
+     LOG(ERROR) << "Failed to reboot.";
+     return;
+   }
  }
 
  while (true) pause();
  return;
 }
-
 
 static int reboot_device() {
   pthread_t pid;
