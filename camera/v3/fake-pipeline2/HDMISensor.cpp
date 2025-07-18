@@ -570,6 +570,9 @@ void HDMISensor::captureNV21(Vector<StreamBuffer>& b, uint32_t gain) {
                     if (needDestroy) {
                         DeWarp::putInstance(port);
                     }
+                    bool uvSwapEnable = false;
+                    if (b[i].get_real_format() == V4L2_PIX_FMT_NV12)
+                        uvSwapEnable = true;
                     CAMHAL_LOGD("buffer index %d, dewarp port %d, isNeedDestroyDewarp %d", index, port, needDestroy);
                     CameraConfig* config = CameraConfig::getInstance(port);
                     config->setCropInfo(inputInfo);
@@ -578,6 +581,7 @@ void HDMISensor::captureNV21(Vector<StreamBuffer>& b, uint32_t gain) {
                     config->setOutputWidth(b[i].width);
                     config->setOutputHeight(b[i].height);
                     config->setOutputStride(b[i].stride);
+                    config->setuvSwapEnable(uvSwapEnable);
                     GDCObj = DeWarp::getInstance(port, PROJ_MODE_LINEAR, Rotation::ROTATION_0);
                     if (GDCObj) {
                         GDCObj->mInput_fd = output_info.dma_fd;
