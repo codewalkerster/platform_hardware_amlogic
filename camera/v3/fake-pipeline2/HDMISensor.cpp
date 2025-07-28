@@ -653,7 +653,13 @@ int HDMISensor::captureNewImage() {
             bAux.img = NULL;
             bAux.share_fd = -1;
 #ifdef GE2D_ENABLE
-            bAux.img = IONInterface::get_instance()->alloc_buffer(b.width * b.height * 3, &bAux.share_fd, noncache, getDataSpace());
+#ifndef HW_JPEG
+            bAux.img = IONInterface::get_instance()->alloc_buffer(bAux.stride * bAux.height * 3 / 2,
+                &bAux.share_fd, cache, getDataSpace());
+#else
+            bAux.img = IONInterface::get_instance()->alloc_buffer(bAux.stride * bAux.height * 3 / 2,
+                &bAux.share_fd, noncache, getDataSpace());
+#endif
 #else
             bAux.img = new uint8_t[b.width * b.height * 3];
 #endif
