@@ -14,7 +14,13 @@
  * limitations under the License.
  */
 
-#pragma once
+#include "Vu7Lights.h"
+
+#include <errno.h>
+#include <fcntl.h>
+#include <log/log.h>
+#include <string>
+#include <unistd.h>
 
 #include <aidl/android/hardware/light/LightType.h>
 
@@ -23,30 +29,31 @@ namespace android {
 namespace hardware {
 namespace light {
 
-enum CMD {
-    Backlight,
-    Version,
-    Display_Reset,
-    CFG_Init,
-};
+bool Vu7Lights::access_backlight() {
+    if (access(backlight_path.c_str(), F_OK) == 0)
+        return true;
+    else
+        return false;
+}
 
-enum BacklightType {
-    NONE,
-    PWM,
-    VU12
-};
+void Vu7Lights::setBacklight(int brightness) {
+    int fd = open(backlight_path.c_str(), O_WRONLY);
+    if (fd < 0)
+        return;
+    sys_write_int(fd, brightness);
+    close(fd);
+}
 
-class HkLights {
-    public:
-        int access_backlight();
-        const char* get_path(LightType type);
-        int setBacklight(int brightness);
-    private:
-        std::string backlight_path = "";
-        int check_vidpid(const char *path);
-        int check_version(const char* path);
-        int write_int(const char* path, CMD cmd, int value);
-};
+int Vu7Lights::sys_write_int(int fd, int value) {
+    char buffer[16];
+    size_t bytes;
+    ssize_t amount;
+
+    bytes = snprintf(buffer, sizeof(buffer), "%d\n", value);
+    if (bytes >= sizeof(buffer)) return -EINVAL;
+    amount = write(fd, buffer, bytes);
+    return amount == -1 ? -errno : 0;
+}
 
 }  // namespace light
 }  // namespace hardware

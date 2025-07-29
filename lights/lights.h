@@ -1,7 +1,8 @@
 #pragma once
 
 #include <aidl/android/hardware/light/BnLights.h>
-#include "HkLights.h"
+#include "Vu12Lights.h"
+#include "Vu7Lights.h"
 #include <pthread.h>
 
 namespace aidl::android::hardware::light {
@@ -10,7 +11,8 @@ class Lights : public BnLights {
     private:
         std::vector<HwLight> availableLights;
         BacklightType backlight_type = BacklightType::NONE;
-        HkLights hklights;
+        Vu12Lights vu12lights;
+        Vu7Lights vu7lights;
         void addLight(LightType const type, int const ordinal);
   public:
         Lights();

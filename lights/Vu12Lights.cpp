@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-#include "HkLights.h"
+#include "Vu12Lights.h"
 
 #include <errno.h>
 #include <fcntl.h>
@@ -31,7 +31,7 @@ namespace android {
 namespace hardware {
 namespace light {
 
-int HkLights::access_backlight() {
+int Vu12Lights::access_backlight() {
     std::string check_target_path = "/sys/class/tty/ttyACM";
     std::string target_backlight = "/dev/ttyACM";
     for (int i=0; i<10; i++) {
@@ -58,7 +58,7 @@ int HkLights::access_backlight() {
     return 0;
 }
 
-int HkLights::check_vidpid(const char *path) {
+int Vu12Lights::check_vidpid(const char *path) {
     std::ifstream uevent_path(path);
 
     if(uevent_path.is_open()) {
@@ -74,11 +74,11 @@ int HkLights::check_vidpid(const char *path) {
     return -1;
 }
 
-int HkLights::check_version(const char* path) {
+int Vu12Lights::check_version(const char* path) {
     return write_int(path, CMD::Version, 0);
 }
 
-const char* HkLights::get_path(LightType type) {
+const char* Vu12Lights::get_path(LightType type) {
     switch (type) {
         case LightType::BACKLIGHT:
             if (backlight_path != "")
@@ -89,12 +89,12 @@ const char* HkLights::get_path(LightType type) {
     }
 }
 
-int HkLights::setBacklight(int brightness) {
+int Vu12Lights::setBacklight(int brightness) {
     std::string bl_path(get_path(LightType::BACKLIGHT));
     return write_int(bl_path.c_str(), CMD::Backlight, brightness);
 }
 
-int HkLights::write_int(const char* path, CMD cmd, int value) {
+int Vu12Lights::write_int(const char* path, CMD cmd, int value) {
     int fd;
 
     fd = open(path, O_RDWR);

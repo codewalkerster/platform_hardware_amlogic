@@ -21,7 +21,8 @@ cc_binary {
     ],
 
     srcs: [
-        "HkLights.cpp",
+        "Vu12Lights.cpp",
+        "Vu7Lights.cpp",
         "lights.cpp",
         "main.cpp",
     ],

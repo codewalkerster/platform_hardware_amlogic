@@ -115,9 +115,14 @@ Lights::Lights() :BnLights(){
         backlight_type = BacklightType::PWM;
     }
     if (backlight_type == BacklightType::NONE
-            && hklights.access_backlight() == 0) {
+            && vu12lights.access_backlight() == 0) {
         addLight(LightType::BACKLIGHT, 0);
         backlight_type = BacklightType::VU12;
+    }
+    if (backlight_type == BacklightType::NONE
+            && vu7lights.access_backlight()) {
+        addLight(LightType::BACKLIGHT, 0);
+        backlight_type = BacklightType::VU7;
     }
     if (backlight_type == BacklightType::NONE) {
         LOG(ERROR) << "LIGHTS:BACKGROUND is not supported";
@@ -156,6 +161,7 @@ ndk::ScopedAStatus Lights::setLightState(int id, const HwLightState& state) {
 
     HwLight const& light = availableLights[id];
     int ret = 0;
+    int brightness = 0;
     switch (light.type) {
         case LightType::MICROPHONE:
             LOG(DEBUG) << "setLightState, light:" << light.ordinal << ", color:" << state.color ;
@@ -168,11 +174,17 @@ ndk::ScopedAStatus Lights::setLightState(int id, const HwLightState& state) {
             LOG(DEBUG) <<  "Light BLUETOOTH is not supported by now.";
             break;
         case LightType::BACKLIGHT:
-            if (backlight_type == BacklightType::VU12) {
-                int brightness = state2brightbess(state);
-                ret = hklights.setBacklight(brightness);
-            } else {
-                writeControlSysfs(BACKLIGHT_DEVICE, state.color);
+            switch (backlight_type) {
+                case BacklightType::VU12:
+                    brightness = state2brightbess(state);
+                    ret = vu12lights.setBacklight(brightness);
+                    break;
+                case BacklightType::VU7:
+                    brightness = state2brightbess(state);
+                    vu7lights.setBacklight(brightness);
+                    break;
+                default:
+                    writeControlSysfs(BACKLIGHT_DEVICE, state.color);
             }
             LOG(DEBUG) << "setLightState, light:" << light.ordinal << ", color:" << state.color ;
             break;
