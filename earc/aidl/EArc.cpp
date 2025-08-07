@@ -152,12 +152,19 @@ ScopedAStatus EArc::changeState(const IEArcStatus status, int32_t portId) {
 }
 
 EArc::EArc() {
+    int ret = -1, retry = 60;
+
     ALOGI("Opening eARC HAL.");
     mCallback = nullptr;
     mPortStatus = IEArcStatus::IDLE;
     mDeathRecipient = ndk::ScopedAIBinder_DeathRecipient(AIBinder_DeathRecipient_new(serviceDied));
+
     // Get alsa mixer
-    open_mixer_handle(&mAlsaMixer);
+    while (ret < 0 && retry-- > 0) {
+        ret = open_mixer_handle(&mAlsaMixer);
+        if (ret < 0)
+            usleep(100 * 1000); //100ms
+    }
 
     mEArcSupported = android::base::GetProperty(PROPERTY_EARC_SUPPORTED, "false") == "true";
     mEArcTx = android::base::GetProperty(PROPERTY_DEVICE_TYPE, "tv") == "tv";
