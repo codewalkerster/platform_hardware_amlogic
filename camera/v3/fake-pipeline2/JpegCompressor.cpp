@@ -823,7 +823,8 @@ size_t encode(params* input) {
         goto exit;
     }
 
-    if ((android_pixel_format_t)input->format == V4L2_PIX_FMT_NV21) {
+    if ((android_pixel_format_t)input->format == V4L2_PIX_FMT_NV21 ||
+                                input->format == HAL_PIXEL_FORMAT_YCrCb_420_SP) {
         informat = YUV420SP;
         bpp = 1;
         if ((in_width != out_width) || (in_height != out_height)) {
@@ -985,7 +986,7 @@ status_t JpegCompressor::compress() {
             format = FMT_NV21;
             break;
         default:
-            CAMHAL_LOGD("not support this format:%d",enc_params.format);
+            CAMHAL_LOGD("not support this format:%d", enc_params.format);
             break;
     }
     int retHwEnc = mHwEnc->encode(enc_params.in_width, enc_params.in_height,
