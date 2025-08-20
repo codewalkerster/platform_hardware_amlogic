@@ -1097,7 +1097,7 @@ void HdmiCecControl::checkConnectStatus()
                     isWake = true;
                 }
             }
-            if (mEventListener != NULL && mCecDevice.is_cec_enabled && isWake) {
+            if (mEventListener != NULL && getPropertyBoolean(PROPERTY_CEC_ENABLED, true) && isWake) {
                 event.eventType = HDMI_EVENT_HOT_PLUG;
                 event.hotplug.connected = connect;
                 event.hotplug.port_id = mCecDevice.port_data[i].port_id;
