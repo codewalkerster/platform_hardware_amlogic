@@ -1002,7 +1002,7 @@ static uint16_t data_stream_element(NeAACDecStruct *hDecoder __unused, bitfile *
 {
     uint8_t byte_aligned;
     uint16_t i, count;
-
+    dmx_info_t* pDmxInfo = &hDecoder->dmx_info;
     /* element_instance_tag = */
     faad_getbits(ld, LEN_TAG
                  DEBUGVAR(1, 60, "data_stream_element(): element_instance_tag"));
@@ -1016,6 +1016,60 @@ static uint16_t data_stream_element(NeAACDecStruct *hDecoder __unused, bitfile *
     }
     if (byte_aligned) {
         faad_byte_align(ld);
+    }
+
+    //audio_codec_print("ElementInstanceTag %d", ElementInstanceTag);
+    if (/*ElementInstanceTag == matchTag*/1) {
+      uint32_t tmp_bs = 0;
+      bitfile tmp_ld;
+      tmp_bs = faad_showbits(ld, 32);
+      tmp_bs =  ((tmp_bs & 0xff) << 24) |
+                ((tmp_bs & 0xff00) << 8) |
+               ((tmp_bs & 0xff0000) >> 8) |
+               ((tmp_bs & 0xff000000) >> 24);
+      //audio_codec_print("tmp_bs %0x ", tmp_bs);
+
+      /*
+       * Describe the reason for the coverity ignore.
+       */
+      /* coverity[event_tag:overrun-buffer-val] */
+      faad_initbits(&tmp_ld, &tmp_bs, 4);
+      unsigned char status;
+      int ancDataSync;
+
+      ancDataSync = faad_getbits(&tmp_ld, 8);
+      //audio_codec_print("ancDataSync %0x", ancDataSync);
+      if (ancDataSync == 0xbc) {
+        //bStoreDSE = 0;
+        /* bs_info */
+        faad_getbits(&tmp_ld, 2);
+        faad_getbits(&tmp_ld, 2);
+        faad_getbits(&tmp_ld, 2);
+        faad_getbits(&tmp_ld, 2);
+        /* status */
+        status = (unsigned char)faad_getbits(&tmp_ld, 8);
+        //audio_codec_print("status  %0x", status);
+        if (status & 0x10) {
+          /* downmix_levels_mpeg4 */
+          pDmxInfo->b_dvb_dmx_coef_center_present = faad_getbits(&tmp_ld, 1);
+          if (pDmxInfo->b_dvb_dmx_coef_center_present) {
+              pDmxInfo->dvb_dmx_coef_center = faad_getbits(&tmp_ld, 3);
+          } else {
+             pDmxInfo->dvb_dmx_coef_center = 0;
+          }
+
+          pDmxInfo->b_dvb_dmx_coef_surround_present = faad_getbits(&tmp_ld, 1);
+          if (pDmxInfo->b_dvb_dmx_coef_surround_present) {
+               pDmxInfo->dvb_dmx_coef_surround = faad_getbits(&tmp_ld, 3);
+          } else {
+               pDmxInfo->dvb_dmx_coef_surround = 0;
+          }
+          //audio_codec_print("b_dvb_dmx_coef_center_present %d dvb_dmx_coef_center %d b_dvb_dmx_coef_surround_present %d dvb_dmx_coef_surround %d",
+            //pDmxInfo->b_dvb_dmx_coef_center_present, pDmxInfo->dvb_dmx_coef_center, pDmxInfo->b_dvb_dmx_coef_surround_present,pDmxInfo->dvb_dmx_coef_surround);
+        }
+
+      }
+
     }
 
     for (i = 0; i < count; i++) {
@@ -1048,7 +1102,6 @@ static uint8_t fill_element(NeAACDecStruct *hDecoder, bitfile *ld, drc_info *drc
     if (count > 0) {
 #ifdef SBR_DEC
         bs_extension_type = (uint8_t)faad_showbits(ld, 4);
-
         if ((bs_extension_type == EXT_SBR_DATA) ||
             (bs_extension_type == EXT_SBR_DATA_CRC)) {
             if (sbr_ele == INVALID_SBR_ELEMENT) {
@@ -2107,10 +2160,8 @@ static uint16_t extension_payload(bitfile *ld, drc_info *drc, uint16_t count)
 
     uint8_t extension_type = (uint8_t)faad_getbits(ld, 4
                              DEBUGVAR(1, 87, "extension_payload(): extension_type"));
-
     switch (extension_type) {
     case EXT_DYNAMIC_RANGE:
-        drc->present = 1;
         n = dynamic_range_info(ld, drc);
         return n;
     case EXT_FILL_DATA:
@@ -2165,9 +2216,8 @@ static uint8_t dynamic_range_info(bitfile *ld, drc_info *drc)
 {
     uint8_t i, n = 1;
     uint8_t band_incr;
-
     drc->num_bands = 1;
-
+    uint8_t pce_tag_present = 0, drc_bands_present = 0, prog_ref_level_present = 0;
     if (faad_get1bit(ld
                      DEBUGVAR(1, 90, "dynamic_range_info(): has instance_tag")) & 1) {
         drc->pce_instance_tag = (uint8_t)faad_getbits(ld, 4
@@ -2175,6 +2225,7 @@ static uint8_t dynamic_range_info(bitfile *ld, drc_info *drc)
         /* drc->drc_tag_reserved_bits = */
         faad_getbits(ld, 4
                      DEBUGVAR(1, 92, "dynamic_range_info(): drc_tag_reserved_bits"));
+        pce_tag_present = 1;
         n++;
     }
 
@@ -2186,6 +2237,7 @@ static uint8_t dynamic_range_info(bitfile *ld, drc_info *drc)
 
     if (faad_get1bit(ld
                      DEBUGVAR(1, 94, "dynamic_range_info(): has bands data")) & 1) {
+        drc_bands_present = 1;
         band_incr = (uint8_t)faad_getbits(ld, 4
                                           DEBUGVAR(1, 95, "dynamic_range_info(): band_incr"));
         /* drc->drc_bands_reserved_bits = */
@@ -2203,6 +2255,7 @@ static uint8_t dynamic_range_info(bitfile *ld, drc_info *drc)
 
     if (faad_get1bit(ld
                      DEBUGVAR(1, 98, "dynamic_range_info(): has prog_ref_level")) & 1) {
+        prog_ref_level_present = 1;
         drc->prog_ref_level = (uint8_t)faad_getbits(ld, 7
                               DEBUGVAR(1, 99, "dynamic_range_info(): prog_ref_level"));
         /* drc->prog_ref_level_reserved_bits = */
@@ -2218,7 +2271,11 @@ static uint8_t dynamic_range_info(bitfile *ld, drc_info *drc)
                               DEBUGVAR(1, 102, "dynamic_range_info(): dyn_rng_ctl"));
         n++;
     }
-
+    if (pce_tag_present == 0 || drc_bands_present == 0) {
+        drc->present = 0;
+    } else {
+        drc->present = 1;
+    }
     return n;
 }
 

@@ -645,9 +645,18 @@ int audio_dec_getinfo(audio_decoder_operations_t *adec_ops, void *pAudioInfo)
         NeAACDecStruct* hDecoder = (NeAACDecStruct*)gFaadCxt->hDecoder;
         if (hDecoder) {
             adec_ops->NchOriginal = hDecoder->fr_channels;
-            ((AudioInfo *)pAudioInfo)->dual_mono_supported = hDecoder->dual_mono_supported;
-            if (hDecoder->sbr_present_flag != -1) {
-                ((AudioInfo *)pAudioInfo)->file_profile =  hDecoder->sbr_present_flag;
+             ((AudioInfo *)pAudioInfo)->dual_mono_supported = hDecoder->dual_mono_supported;
+            /*aac profile info
+             * 0 aac , 1 heaac v1 aac+sbr, 2 heaac v2 aac+sbr+ps
+             */
+            if (hDecoder->sbr_present_flag != -1 && hDecoder->sbr_present_flag != 0) {
+                 ((AudioInfo *)pAudioInfo)->file_profile = 1;
+                if (hDecoder->ps_used_global) {
+                     ((AudioInfo *)pAudioInfo)->file_profile = 2;
+                }
+            } else {
+                ((AudioInfo *)pAudioInfo)->file_profile = 0;
+
             }
         }
         ((AudioInfo *)pAudioInfo)->channels = gFaadCxt->gChannels;
