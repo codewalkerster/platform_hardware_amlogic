@@ -182,8 +182,11 @@ HdmiCecControl::HdmiCecControl(int event)
     mWakeEnabled = 1;
     mIsReboot = false;
     mHotplugOutAwake = false;
-    property_get(PROPERTY_OSD_NAME, mCecDevice.device_name, mCecDevice.is_playback ? "BOX" : "TV");
+    char* default_name = new char[PROPERTY_VALUE_MAX];
+    property_get(PROPERTY_OSD_NAME, default_name, mCecDevice.is_playback ? "BOX" : "TV");
+    property_get(PROPERTY_DEVICE_NAME, mCecDevice.device_name, default_name);
     LOGI("osd name %s", mCecDevice.device_name);
+    delete[] default_name;
 
     int index = 0;
     mCecDevice.added_phy_addr = new int[CEC_ADDR_BROADCAST];
@@ -1157,7 +1160,16 @@ int HdmiCecControl::preHandleOfSend(const cec_message_t* message)
             break;
         }
         case CEC_MESSAGE_SET_OSD_NAME:
-            if (mCecDevice.is_playback && (message->destination == CEC_ADDR_TV)) {
+            if (mCecDevice.is_playback && !mCecDevice.is_audio_system && (message->destination == CEC_ADDR_TV)) {
+                int osd_length = message->length - 1;
+                char str[64] = { 0 };
+                memcpy(str, message->body + 1, osd_length);
+                str[osd_length] = '\0';
+                if (strcmp(str, mCecDevice.device_name) != 0) {
+                    snprintf(mCecDevice.device_name, PROPERTY_VALUE_MAX, "%s", str);
+                    LOGD("%s, refactor device_name to %s", __FUNCTION__, mCecDevice.device_name);
+                    setProperty(PROPERTY_DEVICE_NAME, mCecDevice.device_name);
+                }
                 CMessage msg;
                 msg.mType = HdmiCecControl::MsgHandler::MSG_SET_OSD_NAME;
                 // Remove the pending protection osd message.

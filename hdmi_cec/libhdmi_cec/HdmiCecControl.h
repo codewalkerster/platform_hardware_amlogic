@@ -90,6 +90,7 @@
 
 #define PROPERTY_ARC_PORT               "persist.vendor.sys.arc_port"
 #define PROPERTY_CEC_DEBUG              "persist.vendor.sys.cec_debug"
+#define PROPERTY_DEVICE_NAME            "persist.vendor.sys.cec.device_name"
 
 
 #define PROPERTY_EARC_SUPPORTED         "ro.vendor.media.support_earc"
